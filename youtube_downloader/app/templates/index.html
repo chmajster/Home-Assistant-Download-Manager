@@ -110,6 +110,7 @@
           <span class="eyebrow">Konfiguracja</span>
           <h2 class="h5">Ustawienia dodatku</h2>
           <dl class="row mb-0 small">
+            <dt class="col-6">Tryb magazynu</dt><dd class="col-6">{{ "NFS Home Assistant" if options.storage_mode == "nfs" else "lokalny" }}</dd>
             <dt class="col-6">Katalog pobrań</dt><dd class="col-6 text-break">{{ options.download_dir }}</dd>
             <dt class="col-6">Limit zadań</dt><dd class="col-6">{{ options.max_concurrent_jobs }}</dd>
             <dt class="col-6">Format domyślny</dt><dd class="col-6">{{ options.preferred_format }}</dd>

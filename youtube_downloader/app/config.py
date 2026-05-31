@@ -13,7 +13,9 @@ from .services.ha_options import load_options
 class AppConfig:
     """Validated runtime settings."""
 
+    storage_mode: str
     download_dir: Path
+    nfs_download_dir: Path
     jobs_dir: Path
     history_file: Path
     max_concurrent_jobs: int
@@ -33,7 +35,9 @@ class AppConfig:
         jobs_dir.mkdir(parents=True, exist_ok=True)
         options.download_dir.mkdir(parents=True, exist_ok=True)
         return cls(
+            storage_mode=options.storage_mode,
             download_dir=options.download_dir,
+            nfs_download_dir=options.nfs_download_dir,
             jobs_dir=jobs_dir,
             history_file=jobs_dir / "history.json",
             max_concurrent_jobs=options.max_concurrent_jobs,

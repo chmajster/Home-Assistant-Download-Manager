@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,9 @@ ALLOWED_DOWNLOAD_ROOTS = (Path("/share"), Path("/media"))
 PREFERRED_FORMATS = {"best", "audio", "video"}
 
 DEFAULT_OPTIONS: dict[str, Any] = {
+    "storage_mode": "local",
     "download_dir": str(DEFAULT_DOWNLOAD_DIR),
+    "nfs_download_dir": "/media/youtube_downloader_nfs",
     "max_concurrent_jobs": 2,
     "update_ytdlp_on_start": True,
     "allow_external_port": False,
@@ -29,7 +32,9 @@ DEFAULT_OPTIONS: dict[str, Any] = {
 class HomeAssistantOptions:
     """Validated options provided by Supervisor."""
 
+    storage_mode: str
     download_dir: Path
+    nfs_download_dir: Path
     max_concurrent_jobs: int
     update_ytdlp_on_start: bool
     allow_external_port: bool
@@ -57,13 +62,13 @@ def _read_json() -> dict[str, Any]:
         return {}
 
 
-def _validated_download_dir(value: Any) -> Path:
+def _validated_download_dir(value: Any, default: Path = DEFAULT_DOWNLOAD_DIR) -> Path:
     candidate = Path(str(value)).expanduser()
     if not candidate.is_absolute():
         LOGGER.warning(
             "Katalog pobrań musi być ścieżką bezwzględną. Używam wartości domyślnej."
         )
-        return DEFAULT_DOWNLOAD_DIR
+        return default
     resolved = candidate.resolve()
     if not any(
         resolved == root or root in resolved.parents for root in ALLOWED_DOWNLOAD_ROOTS
@@ -71,8 +76,23 @@ def _validated_download_dir(value: Any) -> Path:
         LOGGER.warning(
             "Katalog pobrań musi znajdować się w /share lub /media. Używam wartości domyślnej."
         )
-        return DEFAULT_DOWNLOAD_DIR
+        return default
     return resolved
+
+
+def _network_mount_root(path: Path) -> Path:
+    """Return /media/<name> or /share/<name> for an NFS-backed target path."""
+
+    for root in ALLOWED_DOWNLOAD_ROOTS:
+        if root in path.parents:
+            relative = path.relative_to(root)
+            if relative.parts:
+                return root / relative.parts[0]
+    raise ValueError("Ścieżka NFS musi wskazywać katalog wewnątrz /media lub /share.")
+
+
+def _validated_storage_mode(value: Any) -> str:
+    return str(value) if str(value) in {"local", "nfs"} else "local"
 
 
 def _validated_int(value: Any, default: int, minimum: int, maximum: int) -> int:
@@ -94,12 +114,29 @@ def load_options() -> HomeAssistantOptions:
 
     provided = _read_json()
     values = {**DEFAULT_OPTIONS, **provided}
+    storage_mode = _validated_storage_mode(values["storage_mode"])
+    local_download_dir = _validated_download_dir(values["download_dir"])
+    nfs_download_dir = _validated_download_dir(
+        values["nfs_download_dir"], Path("/media/youtube_downloader_nfs")
+    )
+    if storage_mode == "nfs":
+        mount_root = _network_mount_root(nfs_download_dir)
+        if not mount_root.is_dir():
+            raise RuntimeError(
+                f"Nie znaleziono udziału NFS {mount_root}. "
+                "Dodaj magazyn sieciowy w Home Assistant i uruchom dodatek ponownie."
+            )
+        nfs_download_dir.mkdir(parents=True, exist_ok=True)
+        if not os.access(nfs_download_dir, os.W_OK):
+            raise RuntimeError(f"Katalog NFS {nfs_download_dir} nie jest zapisywalny.")
     preferred_format = str(values["preferred_format"])
     if preferred_format not in PREFERRED_FORMATS:
         preferred_format = str(DEFAULT_OPTIONS["preferred_format"])
 
     return HomeAssistantOptions(
-        download_dir=_validated_download_dir(values["download_dir"]),
+        storage_mode=storage_mode,
+        download_dir=nfs_download_dir if storage_mode == "nfs" else local_download_dir,
+        nfs_download_dir=nfs_download_dir,
         max_concurrent_jobs=_validated_int(values["max_concurrent_jobs"], 2, 1, 5),
         update_ytdlp_on_start=_validated_bool(values["update_ytdlp_on_start"], True),
         allow_external_port=_validated_bool(values["allow_external_port"], False),

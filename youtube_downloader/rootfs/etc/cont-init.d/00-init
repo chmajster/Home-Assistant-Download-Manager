@@ -1,7 +1,12 @@
 #!/usr/bin/with-contenv bashio
 set -e
 
+STORAGE_MODE="$(bashio::config 'storage_mode')"
 DOWNLOAD_DIR="$(bashio::config 'download_dir')"
+
+if [ "${STORAGE_MODE}" = "nfs" ]; then
+    DOWNLOAD_DIR="$(bashio::config 'nfs_download_dir')"
+fi
 
 case "${DOWNLOAD_DIR}" in
     /share/*|/media/*)
@@ -12,7 +17,32 @@ case "${DOWNLOAD_DIR}" in
         ;;
 esac
 
+if [ "${STORAGE_MODE}" = "nfs" ]; then
+    case "${DOWNLOAD_DIR}" in
+        /media/*)
+            RELATIVE_PATH="${DOWNLOAD_DIR#/media/}"
+            MOUNT_ROOT="/media/${RELATIVE_PATH%%/*}"
+            ;;
+        /share/*)
+            RELATIVE_PATH="${DOWNLOAD_DIR#/share/}"
+            MOUNT_ROOT="/share/${RELATIVE_PATH%%/*}"
+            ;;
+    esac
+
+    if [ ! -d "${MOUNT_ROOT}" ]; then
+        bashio::log.error "Nie znaleziono udziału NFS ${MOUNT_ROOT}."
+        bashio::log.error "Dodaj magazyn sieciowy w Ustawienia → System → Pamięć masowa i uruchom dodatek ponownie."
+        exit 1
+    fi
+fi
+
 mkdir -p "${DOWNLOAD_DIR}" /data/jobs /data/logs
 
+if [ ! -w "${DOWNLOAD_DIR}" ]; then
+    bashio::log.error "Katalog pobrań ${DOWNLOAD_DIR} nie jest zapisywalny."
+    exit 1
+fi
+
+bashio::log.info "Tryb magazynu: ${STORAGE_MODE}"
 bashio::log.info "Katalog pobrań: ${DOWNLOAD_DIR}"
 bashio::log.info "Katalog historii: /data/jobs"

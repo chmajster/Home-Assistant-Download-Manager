@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+- Dodano jawny tryb magazynu `nfs` dla udziałów zamontowanych przez Home Assistant.
+- Dodano opcję `nfs_download_dir` oraz kontrolę obecności i zapisywalności udziału przy starcie.
+- Wykres miejsca na dysku automatycznie pokazuje pojemność wybranego udziału NFS.
+
 ## 1.2.1
 
 - Potwierdzenie usuwania pliku pokazuje teraz nazwę oraz rozmiar wybranego pliku.
