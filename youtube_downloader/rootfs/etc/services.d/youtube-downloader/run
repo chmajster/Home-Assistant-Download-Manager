@@ -1,0 +1,19 @@
+#!/usr/bin/with-contenv bashio
+set -e
+
+if bashio::config.true 'update_ytdlp_on_start'; then
+    bashio::log.info "Aktualizuję yt-dlp przed uruchomieniem aplikacji..."
+    if ! /venv/bin/python -m pip install --no-cache-dir --upgrade yt-dlp; then
+        bashio::log.warning "Aktualizacja yt-dlp nie powiodła się. Uruchamiam z obecną wersją."
+    fi
+fi
+
+bashio::log.info "Uruchamiam YouTube Web Downloader na porcie 8099."
+exec /venv/bin/gunicorn \
+    --bind 0.0.0.0:8099 \
+    --workers 1 \
+    --threads 4 \
+    --timeout 0 \
+    --access-logfile - \
+    --error-logfile - \
+    "app.main:app"

@@ -1,0 +1,47 @@
+:root {
+  color-scheme: light;
+  --app-bg: #f3f5f8;
+  --app-red: #dc3545;
+}
+
+body {
+  background: var(--app-bg);
+  color: #20252b;
+  min-height: 100vh;
+}
+
+.app-container {
+  max-width: 1440px;
+}
+
+.hero-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
+}
+
+.media-thumbnail {
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.action-panel {
+  position: sticky;
+  top: 5.25rem;
+}
+
+.playlist-list {
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.progress {
+  min-width: 9rem;
+}
+
+.job-error {
+  max-width: 22rem;
+  white-space: normal;
+}
+
+.mobile-only {
+  display: none;
+}

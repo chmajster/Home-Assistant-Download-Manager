@@ -1,0 +1,18 @@
+#!/usr/bin/with-contenv bashio
+set -e
+
+DOWNLOAD_DIR="$(bashio::config 'download_dir')"
+
+case "${DOWNLOAD_DIR}" in
+    /share/*|/media/*)
+        ;;
+    *)
+        bashio::log.warning "Niepoprawny katalog pobrań '${DOWNLOAD_DIR}'. Używam /share/youtube_downloader."
+        DOWNLOAD_DIR="/share/youtube_downloader"
+        ;;
+esac
+
+mkdir -p "${DOWNLOAD_DIR}" /data/jobs /data/logs
+
+bashio::log.info "Katalog pobrań: ${DOWNLOAD_DIR}"
+bashio::log.info "Katalog historii: /data/jobs"

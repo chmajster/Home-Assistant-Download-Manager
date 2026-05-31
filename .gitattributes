@@ -1,0 +1,4 @@
+* text=auto
+Dockerfile text eol=lf
+youtube_downloader/rootfs/etc/cont-init.d/* text eol=lf
+youtube_downloader/rootfs/etc/services.d/*/run text eol=lf

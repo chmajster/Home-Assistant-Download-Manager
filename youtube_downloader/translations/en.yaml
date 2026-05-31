@@ -1,0 +1,24 @@
+configuration:
+  download_dir:
+    name: "Download directory"
+    description: "Persistent target directory inside /share or /media."
+  max_concurrent_jobs:
+    name: "Concurrent job limit"
+    description: "Maximum number of simultaneous downloads and live recordings."
+  update_ytdlp_on_start:
+    name: "Update yt-dlp on start"
+    description: "Attempts to update the yt-dlp extractor before the panel starts."
+  allow_external_port:
+    name: "Allow external access"
+    description: "Informational option for access outside Ingress. Configure port mapping in Network."
+  external_port:
+    name: "Preferred external port"
+    description: "Port used when planning optional external access."
+  debug:
+    name: "Debug mode"
+    description: "Enables verbose application logging."
+  preferred_format:
+    name: "Preferred format"
+    description: "Default download variant presented by the application."
+network:
+  8099/tcp: "Optional external access to the web interface"

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Start | YouTube Downloader{% endblock %}
+{% block content %}
+  <section class="hero-card card border-0 shadow-sm mb-4">
+    <div class="card-body p-4 p-lg-5">
+      <h1 class="h3 mb-2">Pobierz dozwolony materiał z YouTube</h1>
+      <p class="text-body-secondary mb-4">Wklej link do filmu, Shorts, playlisty albo transmisji live. Pobieraj wyłącznie materiały, do których masz prawa lub które możesz legalnie zachować.</p>
+      <form action="{{ ingress_url('web.analyze') }}" method="post" class="url-form needs-validation" novalidate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="input-group input-group-lg">
+          <input class="form-control youtube-url" type="url" name="url" placeholder="https://www.youtube.com/watch?v=..." required autocomplete="url">
+          <button class="btn btn-danger px-4" type="submit">Analizuj</button>
+          <div class="invalid-feedback">Wklej poprawny adres HTTP lub HTTPS z obsługiwanej domeny YouTube.</div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h2 class="h5">Historia pobrań</h2>
+          {% if history %}
+            <div class="desktop-only table-responsive">
+              <table class="table align-middle mb-0">
+                <thead><tr><th>Tytuł</th><th>Typ</th><th>Data</th><th>Plik</th><th></th></tr></thead>
+                <tbody>
+                  {% for item in history %}
+                    <tr>
+                      <td>{{ item.title }}</td>
+                      <td>{{ item.type }}</td>
+                      <td>{{ item.downloaded_at|replace("T", " ")|truncate(19, True, "") }}</td>
+                      <td>
+                        {% if item.file_exists %}
+                          <a href="{{ ingress_url('web.downloaded', filename=item.filename) }}">{{ item.filename }}</a>
+                        {% else %}
+                          <span class="badge text-bg-secondary">plik usunięty</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if item.file_exists %}
+                          <form action="{{ ingress_url('web.delete', filename=item.filename) }}" method="post" class="delete-form">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Usuń</button>
+                          </form>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="mobile-only">
+              {% for item in history %}
+                <article class="border rounded p-3 mb-2">
+                  <strong class="d-block">{{ item.title }}</strong>
+                  <small class="text-body-secondary">{{ item.type }} | {{ item.downloaded_at|replace("T", " ")|truncate(19, True, "") }}</small>
+                  <div class="mt-2">
+                    {% if item.file_exists %}
+                      <a class="btn btn-sm btn-outline-primary" href="{{ ingress_url('web.downloaded', filename=item.filename) }}">Pobierz plik</a>
+                      <form action="{{ ingress_url('web.delete', filename=item.filename) }}" method="post" class="delete-form d-inline">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Usuń</button>
+                      </form>
+                    {% else %}
+                      <span class="badge text-bg-secondary">plik usunięty</span>
+                    {% endif %}
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-body-secondary mb-0">Historia jest jeszcze pusta.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h2 class="h5">Ustawienia dodatku</h2>
+          <dl class="row mb-0 small">
+            <dt class="col-6">Katalog pobrań</dt><dd class="col-6 text-break">{{ options.download_dir }}</dd>
+            <dt class="col-6">Limit zadań</dt><dd class="col-6">{{ options.max_concurrent_jobs }}</dd>
+            <dt class="col-6">Format domyślny</dt><dd class="col-6">{{ options.preferred_format }}</dd>
+            <dt class="col-6">Port zewnętrzny</dt><dd class="col-6">{{ "dozwolony" if options.allow_external_port else "wyłączony" }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

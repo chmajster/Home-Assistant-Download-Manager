@@ -1,0 +1,11 @@
+# Changelog
+
+## 1.0.0
+
+- Pierwsze wydanie dodatku Home Assistant.
+- Panel Ingress z analizą filmów, Shorts, playlist i transmisji live.
+- Pobieranie w tle z postępem, prędkością i ETA.
+- Kontrolowane uruchamianie i zatrzymywanie zapisu live.
+- Trwała historia JSON oraz pliki w `/share` lub `/media`.
+- Wieloarchitekturowe budowanie dla aktualnie wspieranych platform `amd64` i `aarch64`.
+- Opcjonalna aktualizacja `yt-dlp` przy każdym starcie dodatku.

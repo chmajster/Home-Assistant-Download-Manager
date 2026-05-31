@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Błąd | YouTube Downloader{% endblock %}
+{% block content %}
+  <section class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <h1 class="h4 text-danger">Nie udało się wykonać operacji</h1>
+      <p class="mb-3">{{ message }}</p>
+      <a class="btn btn-outline-secondary" href="{{ ingress_url('web.index') }}">Wróć na stronę główną</a>
+    </div>
+  </section>
+{% endblock %}

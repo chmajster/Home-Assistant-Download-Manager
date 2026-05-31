@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Analiza | YouTube Downloader{% endblock %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3 gap-2">
+    <h1 class="h3 mb-0">Wynik analizy</h1>
+    <a class="btn btn-outline-secondary" href="{{ ingress_url('web.index') }}">Nowy adres</a>
+  </div>
+  {% if media.is_live %}
+    <div class="alert alert-danger">To jest transmisja na żywo</div>
+  {% elif media.content_type == "live" %}
+    <div class="alert alert-info">Transmisja live nie jest obecnie aktywna. Status: {{ media.live_status or "brak danych" }}.</div>
+  {% endif %}
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <section class="card border-0 shadow-sm">
+        {% if media.thumbnail %}<img class="card-img-top media-thumbnail" src="{{ media.thumbnail }}" alt="Miniatura materiału">{% endif %}
+        <div class="card-body">
+          <h1 class="h4">{{ media.title }}</h1>
+          <dl class="row mb-0">
+            <dt class="col-sm-4">Kanał</dt><dd class="col-sm-8">{{ media.channel }}</dd>
+            <dt class="col-sm-4">ID kanału</dt><dd class="col-sm-8">{{ media.channel_id or "brak danych" }}</dd>
+            <dt class="col-sm-4">Typ</dt><dd class="col-sm-8">{{ media.content_type }}</dd>
+            <dt class="col-sm-4">Czas trwania</dt><dd class="col-sm-8">{{ media.duration|duration if media.duration else "brak danych" }}</dd>
+            <dt class="col-sm-4">Status live</dt><dd class="col-sm-8">{{ media.live_status or "nie dotyczy" }}</dd>
+            {% if media.playlist_count is not none %}<dt class="col-sm-4">Elementy playlisty</dt><dd class="col-sm-8">{{ media.playlist_count }}</dd>{% endif %}
+          </dl>
+        </div>
+      </section>
+    </div>
+    <div class="col-lg-5">
+      <section class="card border-0 shadow-sm action-panel">
+        <div class="card-body">
+          <h2 class="h5">Pobieranie</h2>
+          {% if media.is_live %}
+            <p class="text-body-secondary">Rozpocznij zapis aktywnej transmisji. Zatrzymasz go na stronie zadań.</p>
+            <form action="{{ ingress_url('web.start_live') }}" method="post">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="url" value="{{ media.url }}">
+              <button class="btn btn-danger w-100" type="submit">Rozpocznij zapis live</button>
+            </form>
+          {% elif media.content_type == "live" %}
+            <p class="text-body-secondary mb-0">Zapis będzie dostępny po rozpoczęciu transmisji.</p>
+          {% else %}
+            <form action="{{ ingress_url('web.start_download') }}" method="post">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="url" value="{{ media.url }}">
+              <input type="hidden" name="title" value="{{ media.title }}">
+              <label class="form-label" for="download-type">Wybierz wariant</label>
+              <select class="form-select mb-3" id="download-type" name="download_type">
+                <option value="best"{% if app_settings.preferred_format == "best" %} selected{% endif %}>Najlepsza jakość wideo</option>
+                <option value="audio"{% if app_settings.preferred_format == "audio" %} selected{% endif %}>Tylko audio MP3</option>
+                <option value="video"{% if app_settings.preferred_format == "video" %} selected{% endif %}>Wideo z najlepszym dostępnym audio</option>
+                <option value="format">Konkretny format z tabeli</option>
+              </select>
+              <label class="form-label" for="format-id">ID konkretnego formatu</label>
+              <input class="form-control mb-3" id="format-id" name="format_id" maxlength="80" placeholder="np. 137">
+              <button class="btn btn-danger w-100" type="submit">Rozpocznij pobieranie</button>
+            </form>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+  </div>
+
+  {% if media.formats %}
+    <section class="card border-0 shadow-sm mt-4">
+      <div class="card-body">
+        <h2 class="h5">Dostępne formaty</h2>
+        <div class="desktop-only table-responsive">
+          <table class="table table-striped align-middle mb-0">
+            <thead><tr><th>ID</th><th>Rozszerzenie</th><th>Rozdzielczość</th><th>FPS</th><th>Wideo</th><th>Audio</th><th>Rozmiar</th></tr></thead>
+            <tbody>
+              {% for format in media.formats %}
+                <tr><td>{{ format.format_id }}</td><td>{{ format.ext or "-" }}</td><td>{{ format.resolution or "-" }}</td><td>{{ format.fps or "-" }}</td><td>{{ format.vcodec or "-" }}</td><td>{{ format.acodec or "-" }}</td><td>{{ format.filesize|filesize if format.filesize else "-" }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="mobile-only">
+          {% for format in media.formats %}
+            <article class="format-card border rounded p-3 mb-2">
+              <strong>ID {{ format.format_id }} | {{ format.ext or "?" }}</strong>
+              <small class="d-block text-body-secondary">{{ format.resolution or "brak rozdzielczości" }} | audio: {{ format.acodec or "-" }} | wideo: {{ format.vcodec or "-" }}</small>
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if media.entries %}
+    <section class="card border-0 shadow-sm mt-4">
+      <div class="card-body">
+        <h2 class="h5">Elementy playlisty</h2>
+        <ol class="playlist-list mb-0">
+          {% for entry in media.entries %}
+            <li class="mb-1">{{ entry.title }}{% if entry.duration %} <small class="text-body-secondary">({{ entry.duration|duration }})</small>{% endif %}</li>
+          {% endfor %}
+        </ol>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

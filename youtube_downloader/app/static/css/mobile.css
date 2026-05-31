@@ -1,0 +1,38 @@
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .app-container {
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+  }
+
+  .navbar-brand {
+    font-size: 1rem;
+  }
+
+  .url-form .input-group {
+    display: block;
+  }
+
+  .url-form .form-control,
+  .url-form .btn {
+    border-radius: 0.5rem !important;
+    display: block;
+    margin-bottom: 0.75rem;
+    width: 100%;
+  }
+
+  .action-panel {
+    position: static;
+  }
+
+  .mobile-action {
+    min-height: 2.6rem;
+  }
+}

@@ -1,0 +1,41 @@
+name: "YouTube Web Downloader"
+slug: "youtube_downloader"
+description: "Webowy downloader YouTube oparty o yt-dlp z obsługą Ingress i panelem UI w Home Assistant"
+version: "1.0.0"
+url: "https://github.com/example/home-assistant-youtube-downloader-addon"
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8099
+panel_icon: "mdi:youtube"
+panel_title: "YouTube Downloader"
+watchdog: "http://[HOST]:[PORT:8099]/health"
+map:
+  - type: share
+    read_only: false
+  - type: media
+    read_only: false
+ports:
+  8099/tcp:
+ports_description:
+  8099/tcp: "Opcjonalny zewnętrzny dostęp do interfejsu webowego"
+options:
+  download_dir: "/share/youtube_downloader"
+  max_concurrent_jobs: 2
+  update_ytdlp_on_start: true
+  allow_external_port: false
+  external_port: 8099
+  debug: false
+  preferred_format: "best"
+schema:
+  download_dir: str
+  max_concurrent_jobs: "int(1,5)"
+  update_ytdlp_on_start: bool
+  allow_external_port: bool
+  external_port: port
+  debug: bool
+  preferred_format: "list(best|audio|video)"

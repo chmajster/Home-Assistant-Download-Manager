@@ -1,0 +1,13 @@
+@media (min-width: 769px) {
+  .desktop-only {
+    display: block;
+  }
+
+  table .progress {
+    height: 0.65rem;
+  }
+
+  .format-card {
+    display: none;
+  }
+}
