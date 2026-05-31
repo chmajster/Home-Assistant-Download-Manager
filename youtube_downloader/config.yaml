@@ -1,7 +1,7 @@
-name: "YouTube Web Downloader"
+name: "Media Web Downloader"
 slug: "youtube_downloader"
-description: "Webowy downloader YouTube oparty o yt-dlp z obsługą Ingress i panelem UI w Home Assistant"
-version: "1.0.4"
+description: "Webowy downloader YouTube, Instagram i Kick oparty o yt-dlp z obsługą Ingress i panelem UI w Home Assistant"
+version: "1.1.0"
 url: "https://github.com/example/home-assistant-youtube-downloader-addon"
 arch:
   - amd64
@@ -11,8 +11,8 @@ boot: auto
 init: false
 ingress: true
 ingress_port: 8099
-panel_icon: "mdi:youtube"
-panel_title: "YouTube Downloader"
+panel_icon: "mdi:download"
+panel_title: "Media Downloader"
 watchdog: "http://[HOST]:[PORT:8099]/health"
 map:
   - type: share

@@ -8,7 +8,7 @@ if bashio::config.true 'update_ytdlp_on_start'; then
     fi
 fi
 
-bashio::log.info "Uruchamiam YouTube Web Downloader na porcie 8099."
+bashio::log.info "Uruchamiam Media Web Downloader na porcie 8099."
 exec /venv/bin/gunicorn \
     --chdir / \
     --bind 0.0.0.0:8099 \

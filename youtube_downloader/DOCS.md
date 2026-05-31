@@ -13,8 +13,8 @@ W `config.yaml` aktywne są:
 ```yaml
 ingress: true
 ingress_port: 8099
-panel_icon: mdi:youtube
-panel_title: YouTube Downloader
+panel_icon: mdi:download
+panel_title: Media Downloader
 ```
 
 Supervisor przekazuje ruch z panelu bocznego do wewnętrznego portu `8099`. Aplikacja uwzględnia nagłówek `X-Ingress-Path` przy generowaniu formularzy, linków do CSS i JavaScriptu, wywołań API oraz adresów pobieranych plików. Dzięki temu nie zakłada uruchomienia pod ścieżką `/`.
@@ -33,9 +33,11 @@ Historia przetrwa restart kontenera. Po skasowaniu materiału rekord pozostaje w
 
 ## Zapis transmisji live
 
-Aktywna transmisja live jest zapisywana przez osobny proces `yt-dlp`. Menedżer zadań przechowuje PID procesu, czyta jego postęp i pozwala wysłać bezpieczny sygnał przerwania z interfejsu. Jednoczesny drugi zapis tego samego URL jest odrzucany.
+Aktywna transmisja live jest zapisywana przez osobny proces `yt-dlp`. Menedżer zadań przechowuje PID procesu, czyta jego postęp i pozwala wysłać bezpieczny sygnał przerwania z interfejsu. Jednoczesny drugi zapis tego samego URL jest odrzucany. Mechanizm działa dla publicznych transmisji zwracanych przez extractor jako aktywne live, w tym YouTube i Kick.
 
 Zaplanowana transmisja może zostać przeanalizowana, ale przycisk nagrywania pozostaje niedostępny do chwili rozpoczęcia transmisji.
+
+Bieżący `yt-dlp` nie ma osobnego extractora Instagram live. Dodatek obsługuje publiczne posty, reels, stories, tagi i profile Instagram zwracane przez extractor, ale nie deklaruje zapisu Instagram live.
 
 ## Lokalizacja plików
 
@@ -59,4 +61,4 @@ Gdy `update_ytdlp_on_start` ma wartość `true`, skrypt usługi próbuje wykona�
 /venv/bin/python -m pip install --no-cache-dir --upgrade yt-dlp
 ```
 
-Niepowodzenie jest logowane, ale nie blokuje startu panelu. Aktualizowany jest extractor `yt-dlp`, nie YouTube.
+Niepowodzenie jest logowane, ale nie blokuje startu panelu. Aktualizowany jest extractor `yt-dlp`, nie serwisy źródłowe.

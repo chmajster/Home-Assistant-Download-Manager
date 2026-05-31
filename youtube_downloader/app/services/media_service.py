@@ -1,4 +1,4 @@
-"""YouTube metadata analysis and yt-dlp option preparation."""
+"""Supported media metadata analysis and yt-dlp option preparation."""
 
 from __future__ import annotations
 
@@ -13,21 +13,25 @@ from yt_dlp.utils import DownloadError
 
 LOGGER = logging.getLogger(__name__)
 ALLOWED_DOMAINS = {
-    "youtube.com",
-    "www.youtube.com",
-    "m.youtube.com",
-    "youtu.be",
-    "music.youtube.com",
+    "youtube.com": "youtube",
+    "www.youtube.com": "youtube",
+    "m.youtube.com": "youtube",
+    "youtu.be": "youtube",
+    "music.youtube.com": "youtube",
+    "instagram.com": "instagram",
+    "www.instagram.com": "instagram",
+    "kick.com": "kick",
+    "www.kick.com": "kick",
 }
 FORMAT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
 
 
-class YouTubeServiceError(RuntimeError):
+class MediaServiceError(RuntimeError):
     """User-facing yt-dlp or URL validation error."""
 
 
-class YouTubeService:
-    """Analyze supported YouTube links and prepare controlled downloads."""
+class MediaService:
+    """Analyze supported public media links and prepare controlled downloads."""
 
     def __init__(self, download_dir: Path) -> None:
         self.download_dir = download_dir.resolve()
@@ -35,35 +39,43 @@ class YouTubeService:
 
     @staticmethod
     def validate_url(url: str) -> str:
-        """Allow only public HTTP(S) links to explicitly supported YouTube hosts."""
+        """Allow only public HTTP(S) links to explicitly supported media hosts."""
 
         candidate = (url or "").strip()
         if not candidate or len(candidate) > 2048:
-            raise YouTubeServiceError("Podaj poprawny adres URL YouTube.")
+            raise MediaServiceError("Podaj poprawny adres URL obsługiwanego serwisu.")
         try:
             parts = urlsplit(candidate)
         except ValueError as error:
-            raise YouTubeServiceError("Podany adres URL jest niepoprawny.") from error
+            raise MediaServiceError("Podany adres URL jest niepoprawny.") from error
         host = (parts.hostname or "").lower().rstrip(".")
         if parts.scheme.lower() not in {"http", "https"}:
-            raise YouTubeServiceError(
-                "Dozwolone są wyłącznie adresy YouTube używające HTTP lub HTTPS."
+            raise MediaServiceError(
+                "Dozwolone są wyłącznie adresy używające HTTP lub HTTPS."
             )
         if parts.username or parts.password or parts.port:
-            raise YouTubeServiceError(
+            raise MediaServiceError(
                 "Adres URL nie może zawierać danych logowania ani niestandardowego portu."
             )
         if host not in ALLOWED_DOMAINS:
-            raise YouTubeServiceError(
-                "Dozwolone są wyłącznie obsługiwane domeny YouTube."
+            raise MediaServiceError(
+                "Dozwolone są wyłącznie obsługiwane domeny YouTube, Instagram i Kick."
             )
         if not parts.path:
-            raise YouTubeServiceError("Podaj pełny adres materiału YouTube.")
-        if parts.path.rstrip("/").lower() in {"/redirect", "/attribution_link"}:
-            raise YouTubeServiceError(
-                "Linki przekierowujące YouTube nie są obsługiwane."
-            )
+            raise MediaServiceError("Podaj pełny adres materiału lub kanału.")
+        if ALLOWED_DOMAINS[host] == "youtube" and parts.path.rstrip("/").lower() in {
+            "/redirect",
+            "/attribution_link",
+        }:
+            raise MediaServiceError("Linki przekierowujące YouTube nie są obsługiwane.")
         return urlunsplit((parts.scheme.lower(), host, parts.path, parts.query, ""))
+
+    @staticmethod
+    def detect_platform(url: str) -> str:
+        """Return the supported platform associated with an already validated URL."""
+
+        host = (urlsplit(url).hostname or "").lower().rstrip(".")
+        return ALLOWED_DOMAINS.get(host, "unknown")
 
     def analyze(self, url: str) -> dict[str, Any]:
         """Extract metadata without downloading media."""
@@ -82,14 +94,14 @@ class YouTubeService:
             with YoutubeDL(options) as ydl:
                 raw_info = ydl.extract_info(validated_url, download=False)
         except DownloadError as error:
-            raise YouTubeServiceError(self.polish_error(str(error))) from error
+            raise MediaServiceError(self.polish_error(str(error))) from error
         except Exception as error:
             LOGGER.exception("Nieoczekiwany błąd analizy URL")
-            raise YouTubeServiceError(
+            raise MediaServiceError(
                 "Nie udało się przeanalizować materiału przez yt-dlp."
             ) from error
         if not raw_info:
-            raise YouTubeServiceError("yt-dlp nie zwrócił metadanych dla tego adresu.")
+            raise MediaServiceError("yt-dlp nie zwrócił metadanych dla tego adresu.")
         return self._normalize_info(raw_info, validated_url)
 
     def download(
@@ -111,7 +123,7 @@ class YouTubeService:
                 info = ydl.extract_info(validated_url, download=True)
                 paths = self._paths_from_info(ydl, info)
         except DownloadError as error:
-            raise YouTubeServiceError(self.polish_error(str(error))) from error
+            raise MediaServiceError(self.polish_error(str(error))) from error
         if download_type == "audio":
             paths.extend(path.with_suffix(".mp3") for path in list(paths))
         return self._existing_managed_paths(paths)
@@ -159,11 +171,11 @@ class YouTubeService:
             return "bestvideo*+bestaudio/best", []
         if download_type == "format":
             if not format_id or not FORMAT_ID_RE.fullmatch(format_id):
-                raise YouTubeServiceError(
+                raise MediaServiceError(
                     "Wybrany identyfikator formatu jest niepoprawny."
                 )
             return format_id, []
-        raise YouTubeServiceError("Niepoprawny typ pobierania.")
+        raise MediaServiceError("Niepoprawny typ pobierania.")
 
     def live_command(self, url: str) -> list[str]:
         """Build a separate yt-dlp process command for live recording."""
@@ -199,7 +211,7 @@ class YouTubeService:
             "private video" in lowered
             or "sign in if you've been granted access" in lowered
         ):
-            return "Ten film jest prywatny. Dodatek nie obsługuje logowania ani prywatnych materiałów."
+            return "Ten materiał jest prywatny. Dodatek nie obsługuje logowania ani prywatnych materiałów."
         if "video unavailable" in lowered:
             return "Ten materiał jest niedostępny."
         if "removed" in lowered or "has been deleted" in lowered:
@@ -209,7 +221,7 @@ class YouTubeService:
         if "drm" in lowered:
             return "Materiał jest chroniony DRM i nie może zostać pobrany."
         if "login" in lowered or "sign in" in lowered or "cookies" in lowered:
-            return "YouTube wymaga dodatkowego dostępu. Dodatek nie używa logowania ani cookies."
+            return "Serwis wymaga dodatkowego dostępu. Dodatek nie używa logowania ani cookies."
         if "unsupported url" in lowered:
             return "yt-dlp nie obsługuje tego adresu URL."
         return "yt-dlp nie mógł obsłużyć materiału. Sprawdź dostępność linku i logi dodatku."
@@ -252,6 +264,7 @@ class YouTubeService:
         live_status = info.get("live_status")
         return {
             "url": url,
+            "platform": self.detect_platform(url),
             "title": info.get("title") or "Bez tytułu",
             "channel": info.get("channel") or info.get("uploader") or "Brak danych",
             "channel_id": info.get("channel_id") or info.get("uploader_id"),

@@ -9,6 +9,10 @@
     "m.youtube.com",
     "youtu.be",
     "music.youtube.com",
+    "instagram.com",
+    "www.instagram.com",
+    "kick.com",
+    "www.kick.com",
   ]);
 
   const route = (path) => `${ingressPath}${path}`;
@@ -20,7 +24,7 @@
     return node;
   };
 
-  const isValidYoutubeUrl = (value) => {
+  const isValidMediaUrl = (value) => {
     try {
       const url = new URL(value);
       return ["http:", "https:"].includes(url.protocol) && allowedHosts.has(url.hostname.toLowerCase());
@@ -31,8 +35,8 @@
 
   document.querySelectorAll(".url-form").forEach((form) => {
     form.addEventListener("submit", (event) => {
-      const input = form.querySelector(".youtube-url");
-      const valid = input && isValidYoutubeUrl(input.value);
+      const input = form.querySelector(".media-url");
+      const valid = input && isValidMediaUrl(input.value);
       if (!valid) {
         event.preventDefault();
         event.stopPropagation();

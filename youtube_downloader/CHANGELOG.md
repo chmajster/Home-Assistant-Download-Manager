@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0
+
+- Dodano publiczne materiały Instagram obsługiwane przez `yt-dlp`: posty, reels, stories, tagi i profile.
+- Dodano publiczne kanały live, VOD i klipy Kick obsługiwane przez `yt-dlp`.
+- Uogólniono mechanizm zapisu aktywnego live i dodano nazwę rozpoznanego serwisu w wyniku analizy.
+- Zachowano dotychczasowy slug oraz katalog pobrań, aby aktualizacja nie zmieniała lokalizacji danych.
+
+## 1.0.5
+
+- Dodano rozmiar pliku w historii pobrań na komputerze i telefonie.
+- Rozmiar jest utrwalany w historii i pozostaje widoczny po usunięciu pliku.
+
 ## 1.0.4
 
 - Dodano spinner, blokadę przycisku i komunikat oczekiwania po uruchomieniu analizy URL.

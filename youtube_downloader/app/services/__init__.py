@@ -1,1 +1,1 @@
-"""Service layer for the YouTube Web Downloader add-on."""
+"""Service layer for the Media Web Downloader add-on."""

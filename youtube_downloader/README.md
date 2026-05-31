@@ -1,6 +1,8 @@
-# YouTube Web Downloader
+# Media Web Downloader
 
-Dodatek Home Assistant udostępnia przez Ingress panel do analizy i legalnego pobierania obsługiwanych materiałów YouTube przez `yt-dlp`. Interfejs rozpoznaje filmy, Shorts, playlisty, aktywne transmisje live oraz zaplanowane transmisje, jeśli extractor zwraca ich metadane.
+Dodatek Home Assistant udostępnia przez Ingress panel do analizy i legalnego pobierania publicznych materiałów przez `yt-dlp`. Interfejs obsługuje YouTube, Instagram oraz Kick zgodnie z możliwościami bieżących extractorów.
+
+Obsługiwane są między innymi filmy, Shorts, playlisty, publiczne posty i reels Instagram oraz kanały live, VOD i klipy Kick. W bieżącej wersji `yt-dlp` zapis publicznego live działa dla YouTube i Kick. `yt-dlp` nie udostępnia osobnego extractora Instagram live, więc dodatek nie obiecuje zapisu transmisji Instagram.
 
 Obraz korzysta z oficjalnego wieloplatformowego `ghcr.io/home-assistant/base-python:3.14-alpine3.23` i wspiera aktualne architektury Home Assistant: `amd64` oraz `aarch64`. Platforma `armv7` nie jest już wspierana przez Home Assistant.
 
@@ -65,8 +67,8 @@ W Home Assistant otwórz kartę dodatku:
 
 Build obrazu nie pobiera już pakietów z serwerów Alpine ani PyPI wewnątrz kroków `RUN`. Statyczne binaria `ffmpeg` i `ffprobe` są kopiowane z wieloarchitekturowego obrazu, a zależności Python instalowane z lokalnego katalogu `wheels/`. Jeśli Docker nadal zgłasza błąd DNS podczas pobierania obrazu bazowego, sprawdź połączenie sieciowe i DNS hosta Home Assistant.
 
-Przy starcie aktualizowany jest `yt-dlp`, a nie YouTube. Jeśli aktualizacja się nie uda, dodatek uruchamia poprzednią wersję extractora.
+Przy starcie aktualizowany jest `yt-dlp`, a nie serwisy źródłowe. Jeśli aktualizacja się nie uda, dodatek uruchamia poprzednią wersję extractora.
 
 ## Bezpieczeństwo
 
-Dodatek akceptuje wyłącznie adresy HTTP i HTTPS z obsługiwanych domen YouTube. Nie implementuje logowania, cookies, dostępu do filmów prywatnych, omijania DRM ani paywalli. Pliki trafiają wyłącznie do skonfigurowanego katalogu w `/share` lub `/media`.
+Dodatek akceptuje wyłącznie adresy HTTP i HTTPS z jawnie obsługiwanych domen YouTube, Instagram i Kick. Nie implementuje logowania, cookies, dostępu do prywatnych materiałów, omijania DRM ani paywalli. Pliki trafiają wyłącznie do skonfigurowanego katalogu w `/share` lub `/media`.

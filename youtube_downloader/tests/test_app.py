@@ -12,7 +12,7 @@ from unittest.mock import patch
 from app import create_app
 from app.services.file_service import FileService
 from app.services.job_manager import JobManager
-from app.services.youtube_service import YouTubeService, YouTubeServiceError
+from app.services.media_service import MediaService, MediaServiceError
 
 
 class ApplicationTestCase(unittest.TestCase):
@@ -70,42 +70,53 @@ class ApplicationTestCase(unittest.TestCase):
             response.close()
 
 
-class YouTubeUrlTestCase(unittest.TestCase):
+class MediaUrlTestCase(unittest.TestCase):
     """Keep extractor input limited to known public YouTube hosts."""
 
     def test_supported_url_is_normalized(self) -> None:
-        url = YouTubeService.validate_url(
-            "HTTPS://WWW.YOUTUBE.COM/watch?v=abc#fragment"
-        )
+        url = MediaService.validate_url("HTTPS://WWW.YOUTUBE.COM/watch?v=abc#fragment")
         self.assertEqual(url, "https://www.youtube.com/watch?v=abc")
 
     def test_non_youtube_domain_is_rejected(self) -> None:
-        with self.assertRaises(YouTubeServiceError):
-            YouTubeService.validate_url("https://example.com/watch?v=abc")
+        with self.assertRaises(MediaServiceError):
+            MediaService.validate_url("https://example.com/watch?v=abc")
 
     def test_file_scheme_is_rejected(self) -> None:
-        with self.assertRaises(YouTubeServiceError):
-            YouTubeService.validate_url("file:///etc/passwd")
+        with self.assertRaises(MediaServiceError):
+            MediaService.validate_url("file:///etc/passwd")
 
     def test_youtube_subdomain_confusion_is_rejected(self) -> None:
-        with self.assertRaises(YouTubeServiceError):
-            YouTubeService.validate_url("https://youtube.com.example.org/watch?v=abc")
+        with self.assertRaises(MediaServiceError):
+            MediaService.validate_url("https://youtube.com.example.org/watch?v=abc")
 
     def test_youtube_redirect_endpoint_is_rejected(self) -> None:
-        with self.assertRaises(YouTubeServiceError):
-            YouTubeService.validate_url(
+        with self.assertRaises(MediaServiceError):
+            MediaService.validate_url(
                 "https://www.youtube.com/redirect?q=https://example.com"
             )
 
+    def test_instagram_reel_is_supported(self) -> None:
+        url = MediaService.validate_url("https://www.instagram.com/reel/example/")
+        self.assertEqual(url, "https://www.instagram.com/reel/example/")
+        self.assertEqual(MediaService.detect_platform(url), "instagram")
 
-class FakeYouTubeService:
+    def test_kick_channel_is_supported_for_live_analysis(self) -> None:
+        url = MediaService.validate_url("https://kick.com/example-channel")
+        self.assertEqual(url, "https://kick.com/example-channel")
+        self.assertEqual(MediaService.detect_platform(url), "kick")
+        self.assertEqual(
+            MediaService.detect_content_type({"is_live": True}, url), "live"
+        )
+
+
+class FakeMediaService:
     """Deterministic extractor stand-in for JobManager tests."""
 
     def __init__(self, download_dir: Path) -> None:
         self.download_dir = download_dir
 
-    validate_url = staticmethod(YouTubeService.validate_url)
-    format_selection = staticmethod(YouTubeService.format_selection)
+    validate_url = staticmethod(MediaService.validate_url)
+    format_selection = staticmethod(MediaService.format_selection)
 
     def download(self, **kwargs):
         target = self.download_dir / "example.mp4"
@@ -136,7 +147,7 @@ class JobManagerTestCase(unittest.TestCase):
         self.download_dir.mkdir()
         self.files = FileService(self.download_dir, root / "jobs" / "history.json")
         self.manager = JobManager(
-            FakeYouTubeService(self.download_dir), self.files, max_concurrent_jobs=1
+            FakeMediaService(self.download_dir), self.files, max_concurrent_jobs=1
         )
 
     def tearDown(self) -> None:
@@ -148,12 +159,13 @@ class JobManagerTestCase(unittest.TestCase):
         self.assertEqual(completed.progress, 100.0)
         self.assertEqual(completed.output_file, "example.mp4")
         self.assertEqual(self.files.history()[0]["title"], "Example")
+        self.assertEqual(self.files.history()[0]["size"], 5)
 
     def test_duplicate_queued_live_is_rejected(self) -> None:
         self.manager._slots.acquire()
         try:
             job = self.manager.start_live("https://youtu.be/live", "Live")
-            with self.assertRaises(YouTubeServiceError):
+            with self.assertRaises(MediaServiceError):
                 self.manager.start_live("https://youtu.be/live", "Live")
             stopped = self.manager.stop_live(job.job_id)
             self.assertEqual(stopped.status, "stopped")

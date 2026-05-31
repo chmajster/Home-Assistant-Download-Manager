@@ -18,7 +18,7 @@ from flask import (
 from .. import ingress_url, valid_csrf_token
 from ..services.file_service import FileService, UnsafeFilenameError
 from ..services.job_manager import JobManager
-from ..services.youtube_service import YouTubeService, YouTubeServiceError
+from ..services.media_service import MediaService, MediaServiceError
 
 LOGGER = logging.getLogger(__name__)
 web_bp = Blueprint("web", __name__)
@@ -28,8 +28,8 @@ def _file_service() -> FileService:
     return current_app.extensions["file_service"]
 
 
-def _youtube_service() -> YouTubeService:
-    return current_app.extensions["youtube_service"]
+def _media_service() -> MediaService:
+    return current_app.extensions["media_service"]
 
 
 def _job_manager() -> JobManager:
@@ -63,7 +63,7 @@ def index():
 
 @web_bp.post("/analyze")
 def analyze():
-    """Extract metadata for one supported YouTube URL."""
+    """Extract metadata for one supported public media URL."""
 
     if not _valid_form():
         return redirect(ingress_url("web.index"))
@@ -71,9 +71,9 @@ def analyze():
         flash("Zbyt wiele prób analizy. Odczekaj chwilę i spróbuj ponownie.", "warning")
         return redirect(ingress_url("web.index"))
     try:
-        media = _youtube_service().analyze(request.form.get("url", ""))
+        media = _media_service().analyze(request.form.get("url", ""))
         return render_template("result.html", media=media)
-    except YouTubeServiceError as error:
+    except MediaServiceError as error:
         return render_template("error.html", message=str(error)), 400
 
 
@@ -94,7 +94,7 @@ def start_download():
             format_id=request.form.get("format_id") or None,
         )
         flash(f"Uruchomiono zadanie {job.job_id[:8]}.", "success")
-    except YouTubeServiceError as error:
+    except MediaServiceError as error:
         flash(str(error), "danger")
     return redirect(ingress_url("web.jobs"))
 
@@ -109,14 +109,14 @@ def start_live():
         flash("Zbyt wiele prób uruchomienia zapisu live. Odczekaj chwilę.", "warning")
         return redirect(ingress_url("web.jobs"))
     try:
-        media = _youtube_service().analyze(request.form.get("url", ""))
+        media = _media_service().analyze(request.form.get("url", ""))
         if media["content_type"] != "live":
-            raise YouTubeServiceError("Podany adres nie prowadzi do transmisji live.")
+            raise MediaServiceError("Podany adres nie prowadzi do transmisji live.")
         if not media["is_live"]:
-            raise YouTubeServiceError("Ta transmisja jeszcze się nie rozpoczęła.")
+            raise MediaServiceError("Ta transmisja jeszcze się nie rozpoczęła.")
         job = _job_manager().start_live(media["url"], media["title"])
         flash(f"Uruchomiono zapis transmisji {job.job_id[:8]}.", "success")
-    except YouTubeServiceError as error:
+    except MediaServiceError as error:
         flash(str(error), "danger")
     return redirect(ingress_url("web.jobs"))
 

@@ -88,7 +88,9 @@ class FileService:
         for record in records:
             filename = str(record.get("filename", ""))
             try:
-                record["file_exists"] = self.resolve_download(filename).is_file()
+                path = self.resolve_download(filename)
+                record["file_exists"] = True
+                record["size"] = path.stat().st_size
             except (FileNotFoundError, UnsafeFilenameError):
                 record["file_exists"] = False
         return records
@@ -98,12 +100,13 @@ class FileService:
     ) -> None:
         """Append a completed or partial output to persistent history."""
 
-        self.resolve_download(filename)
+        path = self.resolve_download(filename)
         record = {
             "title": title,
             "url": url,
             "type": download_type,
             "filename": filename,
+            "size": path.stat().st_size,
             "downloaded_at": datetime.now(UTC).isoformat(),
             "status": status,
             "file_exists": True,

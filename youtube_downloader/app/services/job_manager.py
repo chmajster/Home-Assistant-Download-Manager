@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .file_service import FileService
-from .youtube_service import YouTubeService, YouTubeServiceError
+from .media_service import MediaService, MediaServiceError
 
 LOGGER = logging.getLogger(__name__)
 PROGRESS_RE = re.compile(
@@ -67,11 +67,11 @@ class JobManager:
 
     def __init__(
         self,
-        youtube_service: YouTubeService,
+        media_service: MediaService,
         file_service: FileService,
         max_concurrent_jobs: int,
     ) -> None:
-        self.youtube_service = youtube_service
+        self.media_service = media_service
         self.file_service = file_service
         self.max_concurrent_jobs = max_concurrent_jobs
         self._jobs: dict[str, Job] = {}
@@ -88,8 +88,8 @@ class JobManager:
     ) -> Job:
         """Queue one regular yt-dlp download."""
 
-        validated_url = self.youtube_service.validate_url(url)
-        self.youtube_service.format_selection(download_type, format_id)
+        validated_url = self.media_service.validate_url(url)
+        self.media_service.format_selection(download_type, format_id)
         job = self._new_job(validated_url, title, download_type, is_live=False)
         self._executor.submit(self._run_download, job.job_id, format_id)
         LOGGER.info("Dodano zadanie pobierania %s", job.job_id)
@@ -98,7 +98,7 @@ class JobManager:
     def start_live(self, url: str, title: str) -> Job:
         """Queue a uniquely identified live stream recording process."""
 
-        validated_url = self.youtube_service.validate_url(url)
+        validated_url = self.media_service.validate_url(url)
         with self._lock:
             duplicate = any(
                 job.url == validated_url
@@ -107,7 +107,7 @@ class JobManager:
                 for job in self._jobs.values()
             )
             if duplicate:
-                raise YouTubeServiceError(
+                raise MediaServiceError(
                     "Nagrywanie tej transmisji jest już uruchomione."
                 )
         job = self._new_job(validated_url, title, "live", is_live=True)
@@ -215,7 +215,7 @@ class JobManager:
                         active.progress = 100.0
 
             try:
-                paths = self.youtube_service.download(
+                paths = self.media_service.download(
                     url=job.url,
                     download_type=job.download_type,
                     format_id=format_id,
@@ -225,7 +225,7 @@ class JobManager:
                 collected.update(paths)
                 files = self._record_existing_outputs(job_id, collected, "completed")
                 if not files:
-                    raise YouTubeServiceError(
+                    raise MediaServiceError(
                         "Pobieranie zakończyło się bez gotowego pliku. Sprawdź logi dodatku."
                     )
                 with self._lock:
@@ -234,7 +234,7 @@ class JobManager:
                     active.output_file = files[0] if files else None
                     active.progress = 100.0
                     self._finish(active, "completed")
-            except YouTubeServiceError as error:
+            except MediaServiceError as error:
                 self._fail(job_id, str(error))
             except Exception:
                 LOGGER.exception("Nieoczekiwany błąd zadania %s", job_id)
@@ -252,7 +252,7 @@ class JobManager:
                 self._start(job)
             paths: set[Path] = set()
             try:
-                command = self.youtube_service.live_command(job.url)
+                command = self.media_service.live_command(job.url)
                 process = subprocess.Popen(
                     command,
                     stdout=subprocess.PIPE,

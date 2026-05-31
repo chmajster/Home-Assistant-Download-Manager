@@ -1,4 +1,4 @@
-"""YouTube Web Downloader add-on application."""
+"""Media Web Downloader add-on application."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from flask import Flask, request, session, url_for
 from .config import AppConfig
 from .services.file_service import FileService
 from .services.job_manager import JobManager
-from .services.youtube_service import YouTubeService
+from .services.media_service import MediaService
 
 LOGGER = logging.getLogger(__name__)
 INGRESS_PATH_RE = re.compile(r"^/[A-Za-z0-9/_-]*$")
@@ -99,15 +99,15 @@ def create_app() -> Flask:
     app.secret_key = settings.secret_key
 
     file_service = FileService(settings.download_dir, settings.history_file)
-    youtube_service = YouTubeService(settings.download_dir)
+    media_service = MediaService(settings.download_dir)
     job_manager = JobManager(
-        youtube_service=youtube_service,
+        media_service=media_service,
         file_service=file_service,
         max_concurrent_jobs=settings.max_concurrent_jobs,
     )
 
     app.extensions["file_service"] = file_service
-    app.extensions["youtube_service"] = youtube_service
+    app.extensions["media_service"] = media_service
     app.extensions["job_manager"] = job_manager
     app.extensions["request_limiter"] = RequestLimiter()
 

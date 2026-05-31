@@ -1,19 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Start | YouTube Downloader{% endblock %}
+{% block title %}Start | Media Downloader{% endblock %}
 {% block content %}
   <section class="hero-card card border-0 shadow-sm mb-4">
     <div class="card-body p-4 p-lg-5">
-      <h1 class="h3 mb-2">Pobierz dozwolony materiał z YouTube</h1>
-      <p class="text-body-secondary mb-4">Wklej link do filmu, Shorts, playlisty albo transmisji live. Pobieraj wyłącznie materiały, do których masz prawa lub które możesz legalnie zachować.</p>
+      <h1 class="h3 mb-2">Pobierz dozwolony materiał</h1>
+      <p class="text-body-secondary mb-4">Wklej publiczny link z YouTube, Instagram albo Kick. Obsługiwane są filmy, Shorts, reels, publiczne posty, playlisty, klipy, VOD oraz transmisje live rozpoznawane przez yt-dlp. Pobieraj wyłącznie materiały, do których masz prawa lub które możesz legalnie zachować.</p>
       <form action="{{ ingress_url('web.analyze') }}" method="post" class="url-form needs-validation" novalidate>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <div class="input-group input-group-lg">
-          <input class="form-control youtube-url" type="url" name="url" placeholder="https://www.youtube.com/watch?v=..." required autocomplete="url">
+          <input class="form-control media-url" type="url" name="url" placeholder="https://www.youtube.com/watch?v=... lub https://kick.com/kanal" required autocomplete="url">
           <button class="btn btn-danger px-4 analyze-submit" type="submit">
             <span class="spinner-border spinner-border-sm me-2 d-none" aria-hidden="true"></span>
             <span class="analyze-submit-label">Analizuj</span>
           </button>
-          <div class="invalid-feedback">Wklej poprawny adres HTTP lub HTTPS z obsługiwanej domeny YouTube.</div>
+          <div class="invalid-feedback">Wklej poprawny adres HTTP lub HTTPS z obsługiwanej domeny YouTube, Instagram albo Kick.</div>
         </div>
         <div class="analyze-loading alert alert-info d-none mt-3 mb-0" role="status" aria-live="polite">
           <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
@@ -31,13 +31,14 @@
           {% if history %}
             <div class="desktop-only table-responsive">
               <table class="table align-middle mb-0">
-                <thead><tr><th>Tytuł</th><th>Typ</th><th>Data</th><th>Plik</th><th></th></tr></thead>
+                <thead><tr><th>Tytuł</th><th>Typ</th><th>Data</th><th>Rozmiar</th><th>Plik</th><th></th></tr></thead>
                 <tbody>
                   {% for item in history %}
                     <tr>
                       <td>{{ item.title }}</td>
                       <td>{{ item.type }}</td>
                       <td>{{ item.downloaded_at|replace("T", " ")|truncate(19, True, "") }}</td>
+                      <td>{{ item.size|filesize if item.size is defined and item.size is not none else "brak danych" }}</td>
                       <td>
                         {% if item.file_exists %}
                           <a href="{{ ingress_url('web.downloaded', filename=item.filename) }}">{{ item.filename }}</a>
@@ -62,7 +63,7 @@
               {% for item in history %}
                 <article class="border rounded p-3 mb-2">
                   <strong class="d-block">{{ item.title }}</strong>
-                  <small class="text-body-secondary">{{ item.type }} | {{ item.downloaded_at|replace("T", " ")|truncate(19, True, "") }}</small>
+                  <small class="text-body-secondary">{{ item.type }} | {{ item.downloaded_at|replace("T", " ")|truncate(19, True, "") }} | {{ item.size|filesize if item.size is defined and item.size is not none else "brak danych" }}</small>
                   <div class="mt-2">
                     {% if item.file_exists %}
                       <a class="btn btn-sm btn-outline-primary" href="{{ ingress_url('web.downloaded', filename=item.filename) }}">Pobierz plik</a>
