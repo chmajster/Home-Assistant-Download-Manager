@@ -12,6 +12,10 @@ case "${DOWNLOAD_DIR}" in
     /share/*|/media/*)
         ;;
     *)
+        if [ "${STORAGE_MODE}" = "nfs" ]; then
+            bashio::log.error "Niepoprawny katalog NFS '${DOWNLOAD_DIR}'. Użyj ścieżki wewnątrz /media lub /share."
+            exit 1
+        fi
         bashio::log.warning "Niepoprawny katalog pobrań '${DOWNLOAD_DIR}'. Używam /share/youtube_downloader."
         DOWNLOAD_DIR="/share/youtube_downloader"
         ;;

@@ -80,6 +80,18 @@ def _validated_download_dir(value: Any, default: Path = DEFAULT_DOWNLOAD_DIR) ->
     return resolved
 
 
+def _validated_nfs_download_dir(value: Any) -> Path:
+    """Validate an NFS-backed directory without silently falling back locally."""
+
+    candidate = Path(str(value)).expanduser()
+    if not candidate.is_absolute():
+        raise RuntimeError("Katalog NFS musi być ścieżką bezwzględną.")
+    resolved = candidate.resolve()
+    if not any(root in resolved.parents for root in ALLOWED_DOWNLOAD_ROOTS):
+        raise RuntimeError("Katalog NFS musi znajdować się wewnątrz /share lub /media.")
+    return resolved
+
+
 def _network_mount_root(path: Path) -> Path:
     """Return /media/<name> or /share/<name> for an NFS-backed target path."""
 
@@ -116,9 +128,7 @@ def load_options() -> HomeAssistantOptions:
     values = {**DEFAULT_OPTIONS, **provided}
     storage_mode = _validated_storage_mode(values["storage_mode"])
     local_download_dir = _validated_download_dir(values["download_dir"])
-    nfs_download_dir = _validated_download_dir(
-        values["nfs_download_dir"], Path("/media/youtube_downloader_nfs")
-    )
+    nfs_download_dir = _validated_nfs_download_dir(values["nfs_download_dir"])
     if storage_mode == "nfs":
         mount_root = _network_mount_root(nfs_download_dir)
         if not mount_root.is_dir():
