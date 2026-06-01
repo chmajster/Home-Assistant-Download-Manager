@@ -12,7 +12,9 @@ Opcje ustawia się na karcie **Konfiguracja** dodatku w Home Assistant:
 
 | Opcja | Domyślnie | Znaczenie |
 | --- | --- | --- |
+| `storage_mode` | `local` | `local` zapisuje lokalnie, a `nfs` używa magazynu sieciowego zamontowanego przez Home Assistant |
 | `download_dir` | `/share/youtube_downloader` | Docelowy katalog pobrań wewnątrz `/share` albo `/media` |
+| `nfs_download_dir` | `/media/youtube_downloader_nfs` | Katalog pobrań wewnątrz udziału NFS dodanego w Home Assistant |
 | `max_concurrent_jobs` | `2` | Limit równoległych pobrań i zapisów live, od 1 do 5 |
 | `update_ytdlp_on_start` | `true` | Próba aktualizacji `yt-dlp` przed startem aplikacji |
 | `allow_external_port` | `false` | Informacyjna zgoda na planowane użycie zewnętrznego portu |
@@ -23,7 +25,9 @@ Opcje ustawia się na karcie **Konfiguracja** dodatku w Home Assistant:
 Przykład:
 
 ```yaml
+storage_mode: local
 download_dir: /share/youtube_downloader
+nfs_download_dir: /media/youtube_downloader_nfs
 max_concurrent_jobs: 2
 update_ytdlp_on_start: true
 allow_external_port: false
@@ -33,6 +37,19 @@ preferred_format: best
 ```
 
 Supervisor zapisuje opcje w `/data/options.json`. Aplikacja odczytuje ten plik przy uruchomieniu i stosuje bezpieczne wartości domyślne dla błędnych danych. Po zmianie opcji uruchom dodatek ponownie.
+
+## Magazyn NFS z Home Assistant
+
+Udział NFS dodaj najpierw w Home Assistant: **Ustawienia → System → Pamięć masowa → Dodaj magazyn sieciowy**. Wybierz użycie **Media**, podaj nazwę, serwer i ścieżkę udziału NFS. Home Assistant udostępni go dodatkom jako `/media/<nazwa>`.
+
+Następnie ustaw opcje dodatku, na przykład:
+
+```yaml
+storage_mode: nfs
+nfs_download_dir: /media/nas/youtube_downloader
+```
+
+Dodatek nie montuje NFS samodzielnie i nie wymaga dodatkowych uprawnień. Przy starcie sprawdza, czy udział istnieje i jest zapisywalny. Jeśli magazyn sieciowy jest odłączony, start zostanie przerwany z czytelnym komunikatem w logach, aby pliki nie trafiły przypadkiem na lokalny dysk.
 
 ## Przełączniki na karcie Informacje
 
@@ -52,6 +69,7 @@ Jeżeli Home Assistant pokazuje te etykiety po angielsku, sprawdź język ustawi
 - `/data` zawiera trwałą historię w `/data/jobs/history.json`.
 - `/share` jest zalecanym miejscem na pliki dostępne dla użytkownika; domyślnie używany jest `/share/youtube_downloader`.
 - `/media` może być alternatywnym katalogiem pobrań.
+- `/media/<nazwa>` zawiera magazyny sieciowe typu **Media** dodane w Home Assistant.
 
 ## Endpointy
 

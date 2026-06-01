@@ -5,6 +5,9 @@ configuration:
   download_dir:
     name: "Katalog pobrań"
     description: "Trwały katalog docelowy wewnątrz /share albo /media."
+  nfs_download_dir:
+    name: "Katalog pobrań NFS"
+    description: "Ścieżka wewnątrz udziału NFS dodanego w Home Assistant, np. /media/nas/youtube_downloader."
   max_concurrent_jobs:
     name: "Limit równoległych zadań"
     description: "Maksymalna liczba jednoczesnych pobrań i zapisów live."
@@ -25,6 +28,3 @@ configuration:
     description: "Domyślny wariant pobierania prezentowany przez aplikację."
 network:
   8099/tcp: "Opcjonalny zewnętrzny dostęp do interfejsu webowego"
-  nfs_download_dir:
-    name: "Katalog pobrań NFS"
-    description: "Ścieżka wewnątrz udziału NFS dodanego w Home Assistant, np. /media/nas/youtube_downloader."

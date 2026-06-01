@@ -51,6 +51,21 @@ Domyślny katalog:
 
 Pliki są dostępne w udziale Home Assistant `/share`. Można przenieść je zwykłym narzędziem obsługującym udział Samba, dodatkiem File editor, SSH lub innym rozwiązaniem administracyjnym używanym w danej instalacji Home Assistant. Alternatywnie ustaw `download_dir` na katalog wewnątrz `/media`, aby udostępnić pliki w obszarze multimediów.
 
+## Magazyn NFS zarządzany przez Home Assistant
+
+NFS należy dodać po stronie Home Assistant w **Ustawienia → System → Pamięć masowa → Dodaj magazyn sieciowy**. Dla magazynu używanego na pobrania wybierz typ **Media**. Po zapisaniu udział jest dostępny dla dodatku jako `/media/<nazwa>`.
+
+Przykładowa konfiguracja dodatku:
+
+```yaml
+storage_mode: nfs
+nfs_download_dir: /media/nas/youtube_downloader
+```
+
+Przy trybie `nfs` dodatek sprawdza przed uruchomieniem, czy główny katalog udziału, na przykład `/media/nas`, istnieje oraz czy katalog docelowy jest zapisywalny. Brak udziału zatrzymuje start dodatku z błędem w logach. Zapobiega to niezauważonemu zapisowi na lokalnym dysku, gdy NFS jest niedostępny.
+
+Dodatek korzysta wyłącznie z magazynu zamontowanego przez Home Assistant. Nie montuje NFS wewnątrz kontenera, nie wymaga `privileged: true` ani dodatkowych uprawnień systemowych.
+
 ## Zmiana limitu zadań
 
 Na karcie **Konfiguracja** dodatku ustaw `max_concurrent_jobs` na wartość od `1` do `5`, zapisz opcje i uruchom dodatek ponownie. Większy limit zwiększa obciążenie CPU, pamięci, sieci i miejsca docelowego.

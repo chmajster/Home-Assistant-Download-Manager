@@ -5,6 +5,9 @@ configuration:
   download_dir:
     name: "Download directory"
     description: "Persistent target directory inside /share or /media."
+  nfs_download_dir:
+    name: "NFS download directory"
+    description: "Path inside an NFS share added in Home Assistant, for example /media/nas/youtube_downloader."
   max_concurrent_jobs:
     name: "Concurrent job limit"
     description: "Maximum number of simultaneous downloads and live recordings."
@@ -25,6 +28,3 @@ configuration:
     description: "Default download variant presented by the application."
 network:
   8099/tcp: "Optional external access to the web interface"
-  nfs_download_dir:
-    name: "NFS download directory"
-    description: "Path inside an NFS share added in Home Assistant, for example /media/nas/youtube_downloader."

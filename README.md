@@ -57,6 +57,17 @@ Pobrane materiały trafiają domyślnie do:
 
 Historia pobrań jest przechowywana w `/data/jobs/history.json`. Katalogi `/share` oraz `/data` zachowują dane po restarcie i aktualizacji kontenera dodatku.
 
+## Magazyn NFS
+
+Dodatek może zapisywać materiały na udziale NFS dodanym w Home Assistant. Skonfiguruj magazyn sieciowy typu **Media** w **Ustawienia → System → Pamięć masowa**, a następnie ustaw w opcjach dodatku:
+
+```yaml
+storage_mode: nfs
+nfs_download_dir: /media/nas/youtube_downloader
+```
+
+`nas` zastąp nazwą magazynu podaną w Home Assistant. Dodatek sprawdza przy starcie obecność i możliwość zapisu na udziale. Nie montuje NFS samodzielnie i nie wymaga dodatkowych uprawnień kontenera.
+
 ## Aktualizacja yt-dlp
 
 Opcja `update_ytdlp_on_start` jest domyślnie aktywna. Przy starcie kontenera dodatek próbuje zaktualizować `yt-dlp`, czyli backend i zestaw extractorów używanych do obsługi zmian po stronie serwisów. Nie są aktualizowane serwisy źródłowe. Chwilowy brak sieci nie blokuje uruchomienia dodatku.

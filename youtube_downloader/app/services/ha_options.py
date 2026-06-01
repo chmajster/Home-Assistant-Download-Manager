@@ -128,7 +128,12 @@ def load_options() -> HomeAssistantOptions:
     values = {**DEFAULT_OPTIONS, **provided}
     storage_mode = _validated_storage_mode(values["storage_mode"])
     local_download_dir = _validated_download_dir(values["download_dir"])
-    nfs_download_dir = _validated_nfs_download_dir(values["nfs_download_dir"])
+    if storage_mode == "nfs":
+        nfs_download_dir = _validated_nfs_download_dir(values["nfs_download_dir"])
+    else:
+        nfs_download_dir = _validated_download_dir(
+            values["nfs_download_dir"], Path("/media/youtube_downloader_nfs")
+        )
     if storage_mode == "nfs":
         mount_root = _network_mount_root(nfs_download_dir)
         if not mount_root.is_dir():

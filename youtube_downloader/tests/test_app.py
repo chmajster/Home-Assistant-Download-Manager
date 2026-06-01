@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from app import create_app
 from app.services.file_service import FileService
+from app.services.ha_options import _network_mount_root, _validated_storage_mode
 from app.services.job_manager import JobManager
 from app.services.media_service import MediaService, MediaServiceError
 
@@ -22,7 +23,9 @@ class ApplicationTestCase(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         root = Path(self.temp_dir.name)
         settings = SimpleNamespace(
+            storage_mode="local",
             download_dir=root / "downloads",
+            nfs_download_dir=root / "nfs",
             jobs_dir=root / "jobs",
             history_file=root / "jobs" / "history.json",
             max_concurrent_jobs=2,
@@ -139,6 +142,23 @@ class MediaUrlTestCase(unittest.TestCase):
         self.assertEqual(
             MediaService.detect_content_type({"is_live": True}, url), "live"
         )
+
+
+class HomeAssistantOptionsTestCase(unittest.TestCase):
+    """Validate Home Assistant network-storage option helpers."""
+
+    def test_nfs_mount_root_is_first_media_directory(self) -> None:
+        self.assertEqual(
+            _network_mount_root(Path("/media/nas/youtube_downloader")),
+            Path("/media/nas"),
+        )
+
+    def test_nfs_mount_root_rejects_media_root(self) -> None:
+        with self.assertRaises(ValueError):
+            _network_mount_root(Path("/media"))
+
+    def test_unknown_storage_mode_falls_back_to_local(self) -> None:
+        self.assertEqual(_validated_storage_mode("unknown"), "local")
 
 
 class FakeMediaService:
