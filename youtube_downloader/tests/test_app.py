@@ -288,6 +288,8 @@ class JobManagerTestCase(unittest.TestCase):
         completed = self._wait_for_status(job.job_id, "completed")
         self.assertEqual(completed.progress, 100.0)
         self.assertEqual(completed.output_file, "example.mp4")
+        self.assertEqual(completed.downloaded_bytes, 5)
+        self.assertEqual(completed.total_bytes, 5)
         self.assertEqual(self.files.history()[0]["title"], "Example")
         self.assertEqual(self.files.history()[0]["size"], 5)
         restored = JobManager(
@@ -339,6 +341,9 @@ class JobManagerTestCase(unittest.TestCase):
         job = manager.start_download("https://youtu.be/abc", "Example", "best")
         try:
             self.assertTrue(media.started.wait(timeout=2))
+            downloading = manager.get_job(job.job_id)
+            self.assertEqual(downloading.downloaded_bytes, 25)
+            self.assertEqual(downloading.total_bytes, 100)
             self.assertEqual(manager.stop_download(job.job_id).status, "stopping")
             media.release.set()
             self.assertEqual(

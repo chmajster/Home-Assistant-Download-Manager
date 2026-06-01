@@ -219,6 +219,24 @@
     return wrapper;
   };
 
+  const fileSize = (value) => {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let size = Number(value);
+    if (!Number.isFinite(size) || size < 0) return null;
+    for (const unit of units) {
+      if (size < 1024 || unit === units[units.length - 1]) return `${size.toFixed(1)} ${unit}`;
+      size /= 1024;
+    }
+    return null;
+  };
+
+  const jobSize = (job) => {
+    const downloaded = fileSize(job.downloaded_bytes);
+    const total = fileSize(job.total_bytes);
+    if (downloaded && total && job.downloaded_bytes !== job.total_bytes) return `${downloaded} / ${total}`;
+    return downloaded || total || "-";
+  };
+
   const outputLink = (job) => {
     if (!job.output_file) return text("span", "-", "text-body-secondary");
     const link = text("a", "Pobierz", "btn btn-sm btn-soft");
@@ -279,13 +297,14 @@
       statusCell.append(statusBadge(job));
       const progressCell = document.createElement("td");
       progressCell.append(progressBar(job), text("small", `${job.progress || 0}%`, "text-body-secondary"));
+      const sizeCell = text("td", jobSize(job));
       const speedCell = text("td", job.speed || "-");
       const etaCell = text("td", job.eta || "-");
       const outputCell = document.createElement("td");
       outputCell.append(outputLink(job));
       const actionCell = document.createElement("td");
       actionCell.append(jobActions(job));
-      row.append(titleCell, typeCell, statusCell, progressCell, speedCell, etaCell, outputCell, actionCell);
+      row.append(titleCell, typeCell, statusCell, progressCell, sizeCell, speedCell, etaCell, outputCell, actionCell);
       body.append(row);
     });
   };
@@ -298,7 +317,7 @@
       const card = document.createElement("article");
       card.className = "mobile-list-card p-3 mb-3";
       const heading = text("strong", job.title, "d-block");
-      const meta = text("small", `${job.download_type} | ${job.speed || "-"} | ETA ${job.eta || "-"}`, "d-block text-body-secondary mb-2");
+      const meta = text("small", `${job.download_type} | ${jobSize(job)} | ${job.speed || "-"} | ETA ${job.eta || "-"}`, "d-block text-body-secondary mb-2");
       const status = statusBadge(job);
       const progress = progressBar(job);
       progress.classList.add("my-2");

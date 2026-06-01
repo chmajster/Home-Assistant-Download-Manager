@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.7
+
+- Dodano rozmiar pobierania w widoku `Zadania`, w tym bieżącą i całkowitą liczbę bajtów, gdy `yt-dlp` ją udostępnia.
+
 ## 1.3.6
 
 - Dodano zatrzymywanie i wznawianie zwykłych pobrań z zachowaniem częściowych plików `yt-dlp`.

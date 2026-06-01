@@ -49,6 +49,8 @@ class Job:
     download_type: str
     format_id: str | None = None
     progress: float = 0.0
+    downloaded_bytes: int | None = None
+    total_bytes: int | None = None
     speed: str | None = None
     eta: str | None = None
     created_at: str = field(default_factory=now_iso)
@@ -288,6 +290,13 @@ class JobManager:
                         active = self._jobs[job_id]
                         if data.get("status") == "downloading":
                             active.progress = self._percentage(data)
+                            active.downloaded_bytes = self._byte_count(
+                                data.get("downloaded_bytes")
+                            )
+                            active.total_bytes = self._byte_count(
+                                data.get("total_bytes")
+                                or data.get("total_bytes_estimate")
+                            )
                             active.speed = self._display_speed(data.get("speed"))
                             active.eta = self._display_eta(data.get("eta"))
                         elif data.get("status") == "finished":
@@ -313,6 +322,8 @@ class JobManager:
                         active = self._jobs[job_id]
                         active.output_files = files
                         active.output_file = files[0] if files else None
+                        active.downloaded_bytes = self._output_size(files)
+                        active.total_bytes = active.downloaded_bytes
                         active.progress = 100.0
                         self._finish(active, "completed")
                 except DownloadStoppedError:
@@ -368,6 +379,8 @@ class JobManager:
                     active = self._jobs[job_id]
                     active.output_files = files
                     active.output_file = files[0] if files else None
+                    active.downloaded_bytes = self._output_size(files)
+                    active.total_bytes = active.downloaded_bytes
                     if status == "error":
                         active.error_message = "yt-dlp nie mógł zapisać transmisji live. Sprawdź logi dodatku."
                     self._finish(active, status)
@@ -435,6 +448,19 @@ class JobManager:
         if total and downloaded:
             return round(min(100.0, downloaded * 100 / total), 1)
         return 0.0
+
+    @staticmethod
+    def _byte_count(value: Any) -> int | None:
+        return int(value) if isinstance(value, (int, float)) and value >= 0 else None
+
+    def _output_size(self, filenames: list[str]) -> int | None:
+        size = 0
+        for filename in filenames:
+            try:
+                size += self.file_service.resolve_download(filename).stat().st_size
+            except (FileNotFoundError, OSError, ValueError):
+                return None
+        return size if filenames else None
 
     @staticmethod
     def _display_speed(speed: Any) -> str | None:
