@@ -15,7 +15,7 @@ from flask import Flask, request, session, url_for
 from .config import AppConfig
 from .services.file_service import FileService
 from .services.job_manager import JobManager
-from .services.media_service import MediaService
+from .services.media_service import ALLOWED_DOMAINS, MediaService
 
 LOGGER = logging.getLogger(__name__)
 INGRESS_PATH_RE = re.compile(r"^/[A-Za-z0-9/_-]*$")
@@ -104,6 +104,7 @@ def create_app() -> Flask:
         media_service=media_service,
         file_service=file_service,
         max_concurrent_jobs=settings.max_concurrent_jobs,
+        jobs_file=settings.jobs_dir / "queue.json",
     )
 
     app.extensions["file_service"] = file_service
@@ -151,6 +152,8 @@ def create_app() -> Flask:
             "status_labels": JobManager.STATUS_LABELS,
             "csrf_token": csrf_token,
             "app_settings": settings,
+            "allowed_hosts": sorted(ALLOWED_DOMAINS),
+            "active_job_statuses": sorted(JobManager.ACTIVE_STATUSES),
         }
 
     LOGGER.info(

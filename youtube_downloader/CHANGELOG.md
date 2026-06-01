@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.3
+
+- Dodano trwałą kolejkę zadań w `/data/jobs/queue.json` oraz status `przerwane` dla operacji aktywnych podczas restartu.
+- Przeniesiono listę obsługiwanych domen i aktywnych statusów do backendu, który przekazuje je frontendowi jako JSON.
+- Dodano filtrowanie, sortowanie i paginację historii pobrań.
+
 ## 1.3.2
 
 - Dodano czytelny komunikat błędu pollingu zadań bez usuwania ostatniego poprawnego stanu listy.

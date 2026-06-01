@@ -23,7 +23,7 @@ Standardowe przełączniki `Start on boot`, `Watchdog`, `Auto update` oraz `Show
 
 ## Zadania i historia
 
-Zwykłe pobrania wykonują się w workerach tła. Liczba równoległych zadań jest ograniczona przez `max_concurrent_jobs`. Aktywne zadania są przechowywane w pamięci procesu Gunicorn, więc po restarcie dodatku lista aktywnych operacji zaczyna się od nowa.
+Zwykłe pobrania wykonują się w workerach tła. Liczba równoległych zadań jest ograniczona przez `max_concurrent_jobs`. Stan kolejki jest zapisywany w `/data/jobs/queue.json`. Po restarcie dodatku lista zostaje odtworzona, a zadania, które były aktywne, otrzymują status `przerwane`. Dodatek nie uruchamia ich automatycznie ponownie.
 
 Po zakończeniu operacji wynik jest zapisywany w historii JSON:
 

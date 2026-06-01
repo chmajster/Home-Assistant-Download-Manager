@@ -45,12 +45,33 @@
             </div>
           </div>
           {% if history %}
-            <div class="desktop-only table-responsive">
+            <div class="row g-2 mb-3 history-controls">
+              <div class="col-sm-4">
+                <label class="form-label small mb-1" for="history-type-filter">Typ</label>
+                <select class="form-select form-select-sm" id="history-type-filter">
+                  <option value="">Wszystkie typy</option>
+                </select>
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small mb-1" for="history-status-filter">Status</label>
+                <select class="form-select form-select-sm" id="history-status-filter">
+                  <option value="">Wszystkie statusy</option>
+                </select>
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small mb-1" for="history-sort">Sortowanie</label>
+                <select class="form-select form-select-sm" id="history-sort">
+                  <option value="newest">Najnowsze najpierw</option>
+                  <option value="oldest">Najstarsze najpierw</option>
+                </select>
+              </div>
+            </div>
+            <div class="desktop-only table-responsive history-list">
               <table class="table align-middle mb-0">
                 <thead><tr><th>Tytuł</th><th>Typ</th><th>Data</th><th>Rozmiar</th><th>Plik</th><th></th></tr></thead>
                 <tbody>
                   {% for item in history %}
-                    <tr>
+                    <tr class="history-item" data-history-index="{{ loop.index0 }}" data-history-type="{{ item.type }}" data-history-status="{{ item.status }}" data-history-date="{{ item.downloaded_at }}">
                       <td>{{ item.title }}</td>
                       <td>{{ item.type }}</td>
                       <td>{{ item.downloaded_at|replace("T", " ")|truncate(19, True, "") }}</td>
@@ -75,9 +96,9 @@
                 </tbody>
               </table>
             </div>
-            <div class="mobile-only">
+            <div class="mobile-only history-list">
               {% for item in history %}
-                <article class="mobile-list-card p-3 mb-2">
+                <article class="mobile-list-card p-3 mb-2 history-item" data-history-index="{{ loop.index0 }}" data-history-type="{{ item.type }}" data-history-status="{{ item.status }}" data-history-date="{{ item.downloaded_at }}">
                   <strong class="d-block">{{ item.title }}</strong>
                   <small class="text-body-secondary">{{ item.type }} | {{ item.downloaded_at|replace("T", " ")|truncate(19, True, "") }} | {{ item.size|filesize if item.size is defined and item.size is not none else "brak danych" }}</small>
                   <div class="mt-2">
@@ -93,6 +114,14 @@
                   </div>
                 </article>
               {% endfor %}
+            </div>
+            <div id="history-filter-empty" class="empty-state d-none">
+              <strong>Brak wyników dla wybranych filtrów</strong>
+            </div>
+            <div id="history-pagination" class="d-flex justify-content-between align-items-center gap-2 mt-3">
+              <button class="btn btn-sm btn-soft" id="history-prev" type="button">Poprzednia strona</button>
+              <span class="small text-body-secondary" id="history-page">Strona 1 z 1</span>
+              <button class="btn btn-sm btn-soft" id="history-next" type="button">Następna strona</button>
             </div>
           {% else %}
             <div class="empty-state">

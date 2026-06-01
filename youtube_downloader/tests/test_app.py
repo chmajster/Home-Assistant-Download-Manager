@@ -89,6 +89,13 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("platform-chip platform-kick", body)
         self.assertIn("hero-input-group", body)
 
+    def test_base_exposes_frontend_configuration(self) -> None:
+        body = self.client.get("/").get_data(as_text=True)
+        self.assertIn('id="allowed-hosts"', body)
+        self.assertIn("www.youtube.com", body)
+        self.assertIn('id="active-job-statuses"', body)
+        self.assertIn("downloading", body)
+
     def test_history_delete_form_contains_filename_and_size(self) -> None:
         files = self.app.extensions["file_service"]
         target = files.download_dir / "example video.mp4"
@@ -212,6 +219,27 @@ class JobManagerTestCase(unittest.TestCase):
         self.assertEqual(completed.output_file, "example.mp4")
         self.assertEqual(self.files.history()[0]["title"], "Example")
         self.assertEqual(self.files.history()[0]["size"], 5)
+        restored = JobManager(
+            FakeMediaService(self.download_dir), self.files, max_concurrent_jobs=1
+        )
+        self.assertEqual(restored.get_job(job.job_id).status, "completed")
+
+    def test_pending_job_is_restored_as_interrupted(self) -> None:
+        job = self.manager._new_job(
+            "https://youtu.be/abc", "Example", "best", is_live=False
+        )
+        restored = JobManager(
+            FakeMediaService(self.download_dir), self.files, max_concurrent_jobs=1
+        ).get_job(job.job_id)
+        self.assertEqual(restored.status, "interrupted")
+        self.assertIn("restart", restored.error_message)
+
+    def test_corrupted_persistent_queue_does_not_break_startup(self) -> None:
+        self.manager.jobs_file.write_text("{", encoding="utf-8")
+        restored = JobManager(
+            FakeMediaService(self.download_dir), self.files, max_concurrent_jobs=1
+        )
+        self.assertEqual(restored.list_jobs(), [])
 
     def test_storage_usage_reports_capacity(self) -> None:
         storage = self.files.storage_usage()

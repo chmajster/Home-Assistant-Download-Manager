@@ -3,17 +3,12 @@
 
   const ingressPath = document.querySelector('meta[name="ingress-path"]')?.content || "";
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
-  const allowedHosts = new Set([
-    "youtube.com",
-    "www.youtube.com",
-    "m.youtube.com",
-    "youtu.be",
-    "music.youtube.com",
-    "instagram.com",
-    "www.instagram.com",
-    "kick.com",
-    "www.kick.com",
-  ]);
+  let allowedHosts = new Set();
+  try {
+    allowedHosts = new Set(JSON.parse(document.getElementById("allowed-hosts")?.textContent || "[]"));
+  } catch (error) {
+    console.error("Nie można odczytać listy obsługiwanych domen:", error);
+  }
 
   const route = (path) => `${ingressPath}${path}`;
 
@@ -95,7 +90,83 @@
     syncFormatId();
   });
 
-  const activeJobStatuses = new Set(["pending", "downloading"]);
+  const historyItems = Array.from(document.querySelectorAll(".history-item"));
+  if (historyItems.length) {
+    const typeFilter = document.getElementById("history-type-filter");
+    const statusFilter = document.getElementById("history-status-filter");
+    const sort = document.getElementById("history-sort");
+    const previous = document.getElementById("history-prev");
+    const next = document.getElementById("history-next");
+    const pageLabel = document.getElementById("history-page");
+    const empty = document.getElementById("history-filter-empty");
+    const records = Array.from(
+      new Map(historyItems.map((item) => [item.dataset.historyIndex, item])).values()
+    );
+    const pageSize = 10;
+    let currentPage = 1;
+
+    const addOptions = (select, values) => {
+      values.forEach((value) => {
+        const option = text("option", value);
+        option.value = value;
+        select?.append(option);
+      });
+    };
+
+    addOptions(typeFilter, [...new Set(records.map((item) => item.dataset.historyType))].sort());
+    addOptions(statusFilter, [...new Set(records.map((item) => item.dataset.historyStatus))].sort());
+
+    const renderHistory = () => {
+      const filtered = records
+        .filter((item) => !typeFilter?.value || item.dataset.historyType === typeFilter.value)
+        .filter((item) => !statusFilter?.value || item.dataset.historyStatus === statusFilter.value)
+        .sort((left, right) => {
+          const order = left.dataset.historyDate.localeCompare(right.dataset.historyDate);
+          return sort?.value === "oldest" ? order : -order;
+        });
+      const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+      currentPage = Math.min(currentPage, pageCount);
+      const start = (currentPage - 1) * pageSize;
+      const visibleIndexes = new Set(
+        filtered.slice(start, start + pageSize).map((item) => item.dataset.historyIndex)
+      );
+
+      historyItems.forEach((item) => {
+        item.classList.toggle("d-none", !visibleIndexes.has(item.dataset.historyIndex));
+      });
+      document.querySelectorAll(".history-list").forEach((list) => {
+        list.classList.toggle("d-none", filtered.length === 0);
+      });
+      empty?.classList.toggle("d-none", filtered.length > 0);
+      document.getElementById("history-pagination")?.classList.toggle("d-none", filtered.length === 0);
+      if (pageLabel) pageLabel.textContent = `Strona ${currentPage} z ${pageCount}`;
+      if (previous) previous.disabled = currentPage <= 1;
+      if (next) next.disabled = currentPage >= pageCount;
+    };
+
+    [typeFilter, statusFilter, sort].forEach((control) => {
+      control?.addEventListener("change", () => {
+        currentPage = 1;
+        renderHistory();
+      });
+    });
+    previous?.addEventListener("click", () => {
+      currentPage -= 1;
+      renderHistory();
+    });
+    next?.addEventListener("click", () => {
+      currentPage += 1;
+      renderHistory();
+    });
+    renderHistory();
+  }
+
+  let activeJobStatuses = new Set();
+  try {
+    activeJobStatuses = new Set(JSON.parse(document.getElementById("active-job-statuses")?.textContent || "[]"));
+  } catch (error) {
+    console.error("Nie można odczytać listy aktywnych statusów:", error);
+  }
   const isActiveJob = (job) => activeJobStatuses.has(job.status);
 
   const statusBadge = (job) => {
@@ -105,6 +176,7 @@
       completed: "text-bg-success",
       error: "text-bg-danger",
       stopped: "text-bg-warning",
+      interrupted: "text-bg-warning",
     };
     return text("span", job.status_label, `badge ${colors[job.status] || "text-bg-secondary"}`);
   };

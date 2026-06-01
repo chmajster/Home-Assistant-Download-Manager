@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -10,7 +11,7 @@ import subprocess
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -55,14 +56,16 @@ class Job:
 
 
 class JobManager:
-    """Queue regular downloads and supervise dedicated yt-dlp live processes."""
+    """Queue downloads, persist snapshots, and supervise dedicated live processes."""
 
+    ACTIVE_STATUSES = {"pending", "downloading"}
     STATUS_LABELS = {
         "pending": "oczekuje",
         "downloading": "pobieranie",
         "completed": "zakończone",
         "error": "błąd",
         "stopped": "zatrzymane",
+        "interrupted": "przerwane",
     }
 
     def __init__(
@@ -70,10 +73,12 @@ class JobManager:
         media_service: MediaService,
         file_service: FileService,
         max_concurrent_jobs: int,
+        jobs_file: Path | None = None,
     ) -> None:
         self.media_service = media_service
         self.file_service = file_service
         self.max_concurrent_jobs = max_concurrent_jobs
+        self.jobs_file = jobs_file or file_service.history_file.parent / "queue.json"
         self._jobs: dict[str, Job] = {}
         self._live_processes: dict[str, subprocess.Popen[str]] = {}
         self._stop_events: dict[str, threading.Event] = {}
@@ -82,6 +87,7 @@ class JobManager:
         self._executor = ThreadPoolExecutor(
             max_workers=max_concurrent_jobs, thread_name_prefix="download"
         )
+        self._load_jobs()
 
     def start_download(
         self, url: str, title: str, download_type: str, format_id: str | None = None
@@ -103,7 +109,7 @@ class JobManager:
             duplicate = any(
                 job.url == validated_url
                 and job.is_live
-                and job.status in {"pending", "downloading"}
+                and job.status in self.ACTIVE_STATUSES
                 for job in self._jobs.values()
             )
             if duplicate:
@@ -131,7 +137,7 @@ class JobManager:
             job = self._jobs.get(job_id)
             if not job or not job.is_live:
                 raise KeyError(job_id)
-            if job.status not in {"pending", "downloading"}:
+            if job.status not in self.ACTIVE_STATUSES:
                 return job
             event = self._stop_events.get(job_id)
             process = self._live_processes.get(job_id)
@@ -177,6 +183,7 @@ class JobManager:
         )
         with self._lock:
             self._jobs[job.job_id] = job
+            self._persist_jobs()
         return Job(**asdict(job))
 
     def _run_download(self, job_id: str, format_id: str | None) -> None:
@@ -213,6 +220,7 @@ class JobManager:
                         active.eta = self._display_eta(data.get("eta"))
                     elif data.get("status") == "finished":
                         active.progress = 100.0
+                    self._persist_jobs()
 
             try:
                 paths = self.media_service.download(
@@ -300,6 +308,7 @@ class JobManager:
                 job.progress = float(progress_match.group("progress"))
                 job.speed = progress_match.group("speed")
                 job.eta = progress_match.group("eta")
+                self._persist_jobs()
         if destination_match:
             path = Path(destination_match.group("path").strip("\"'")).resolve()
             if self.file_service.is_managed_file(path):
@@ -372,20 +381,71 @@ class JobManager:
             else f"{minutes:02d}:{seconds:02d}"
         )
 
-    @staticmethod
-    def _start(job: Job) -> None:
+    def _start(self, job: Job) -> None:
         job.status = "downloading"
         job.started_at = now_iso()
+        self._persist_jobs()
 
-    @staticmethod
-    def _finish(job: Job, status: str) -> None:
+    def _finish(self, job: Job, status: str) -> None:
         job.status = status
         job.finished_at = now_iso()
         job.speed = None
         job.eta = None
+        self._persist_jobs()
 
     def _fail(self, job_id: str, message: str) -> None:
         with self._lock:
             job = self._jobs[job_id]
             job.error_message = message
             self._finish(job, "error")
+
+    def _load_jobs(self) -> None:
+        """Restore persisted jobs and mark unfinished work as interrupted."""
+
+        try:
+            if not self.jobs_file.exists():
+                return
+            with self.jobs_file.open("r", encoding="utf-8") as file_handle:
+                payload = json.load(file_handle)
+            if not isinstance(payload, list):
+                raise ValueError("oczekiwano listy zadań")
+        except (OSError, json.JSONDecodeError, ValueError) as error:
+            LOGGER.error("Nie można odczytać trwałej kolejki zadań: %s", error)
+            return
+
+        field_names = {item.name for item in fields(Job)}
+        interrupted = False
+        for record in payload:
+            if not isinstance(record, dict):
+                LOGGER.warning("Pominięto niepoprawny rekord trwałej kolejki zadań")
+                continue
+            try:
+                job = Job(**{key: value for key, value in record.items() if key in field_names})
+            except TypeError as error:
+                LOGGER.warning("Pominięto niepoprawny rekord zadania: %s", error)
+                continue
+            if job.status in self.ACTIVE_STATUSES:
+                job.status = "interrupted"
+                job.finished_at = now_iso()
+                job.speed = None
+                job.eta = None
+                job.error_message = "Zadanie zostało przerwane przez restart aplikacji."
+                interrupted = True
+            self._jobs[job.job_id] = job
+        if interrupted:
+            self._persist_jobs()
+        LOGGER.info("Odtworzono %s zadań z trwałej kolejki", len(self._jobs))
+
+    def _persist_jobs(self) -> None:
+        """Write a consistent queue snapshot without interrupting active work."""
+
+        temp_file = self.jobs_file.with_suffix(".tmp")
+        try:
+            self.jobs_file.parent.mkdir(parents=True, exist_ok=True)
+            with self._lock:
+                records = [asdict(job) for job in self._jobs.values()]
+            with temp_file.open("w", encoding="utf-8") as file_handle:
+                json.dump(records, file_handle, ensure_ascii=False, indent=2)
+            os.replace(temp_file, self.jobs_file)
+        except (OSError, TypeError) as error:
+            LOGGER.error("Nie można zapisać trwałej kolejki zadań: %s", error)
