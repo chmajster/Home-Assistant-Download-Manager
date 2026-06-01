@@ -110,6 +110,11 @@ class ApplicationTestCase(unittest.TestCase):
         body = self.client.get("/").get_data(as_text=True)
         self.assertIn('data-filename="example video.mp4"', body)
         self.assertIn('data-filesize-label="5.0 B"', body)
+        self.assertIn('id="history-type-filter"', body)
+        self.assertIn('id="history-status-filter"', body)
+        self.assertIn('id="history-pagination"', body)
+        self.assertIn('data-history-type="best"', body)
+        self.assertIn('data-history-status="completed"', body)
 
 
 class MediaUrlTestCase(unittest.TestCase):

@@ -1,4 +1,4 @@
-"""In-memory background job manager with controllable live recording processes."""
+"""Persistent background job manager with controllable live recording processes."""
 
 from __future__ import annotations
 
@@ -220,7 +220,6 @@ class JobManager:
                         active.eta = self._display_eta(data.get("eta"))
                     elif data.get("status") == "finished":
                         active.progress = 100.0
-                    self._persist_jobs()
 
             try:
                 paths = self.media_service.download(
@@ -308,7 +307,6 @@ class JobManager:
                 job.progress = float(progress_match.group("progress"))
                 job.speed = progress_match.group("speed")
                 job.eta = progress_match.group("eta")
-                self._persist_jobs()
         if destination_match:
             path = Path(destination_match.group("path").strip("\"'")).resolve()
             if self.file_service.is_managed_file(path):

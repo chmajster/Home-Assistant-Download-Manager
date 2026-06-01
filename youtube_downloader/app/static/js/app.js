@@ -113,8 +113,8 @@
       });
     };
 
-    addOptions(typeFilter, [...new Set(records.map((item) => item.dataset.historyType))].sort());
-    addOptions(statusFilter, [...new Set(records.map((item) => item.dataset.historyStatus))].sort());
+    addOptions(typeFilter, [...new Set(records.map((item) => item.dataset.historyType).filter(Boolean))].sort());
+    addOptions(statusFilter, [...new Set(records.map((item) => item.dataset.historyStatus).filter(Boolean))].sort());
 
     const renderHistory = () => {
       const filtered = records
@@ -131,6 +131,18 @@
         filtered.slice(start, start + pageSize).map((item) => item.dataset.historyIndex)
       );
 
+      document.querySelectorAll(".history-items").forEach((container) => {
+        const itemsByIndex = new Map(
+          Array.from(container.querySelectorAll(".history-item")).map((item) => [
+            item.dataset.historyIndex,
+            item,
+          ])
+        );
+        filtered.forEach((item) => {
+          const target = itemsByIndex.get(item.dataset.historyIndex);
+          if (target) container.append(target);
+        });
+      });
       historyItems.forEach((item) => {
         item.classList.toggle("d-none", !visibleIndexes.has(item.dataset.historyIndex));
       });
