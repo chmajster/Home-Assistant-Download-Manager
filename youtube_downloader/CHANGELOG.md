@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.16
+
+- Dodano przycisk `Usuń wpis` obok `Pobierz ponownie` w historii pobrań.
+- Usunięcie wpisu z historii nie kasuje pobranego pliku z dysku.
+- Dotychczasową akcję zwalniania miejsca opisano wyraźniej jako `Usuń plik`.
+
 ## 1.3.15
 
 - Historia pobrań w sekcji `Biblioteka` wykorzystuje pełną szerokość widoku na komputerze.

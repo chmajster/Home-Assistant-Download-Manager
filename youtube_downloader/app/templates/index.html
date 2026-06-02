@@ -106,10 +106,16 @@
                               <button class="btn btn-sm btn-soft" type="submit">Pobierz ponownie</button>
                             </form>
                           {% endif %}
+                          <form action="{{ ingress_url('web.delete_history_record') }}" method="post" class="history-delete-form" data-title="{{ item.title }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="filename" value="{{ item.filename }}">
+                            <input type="hidden" name="downloaded_at" value="{{ item.downloaded_at }}">
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Usuń wpis</button>
+                          </form>
                           {% if item.file_exists %}
                             <form action="{{ ingress_url('web.delete', filename=item.filename) }}" method="post" class="delete-form" data-filename="{{ item.filename }}" data-filesize-label="{{ item.size|filesize if item.size is defined and item.size is not none else 'brak danych' }}">
                               <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                              <button class="btn btn-sm btn-outline-danger" type="submit">Usuń</button>
+                              <button class="btn btn-sm btn-outline-danger" type="submit">Usuń plik</button>
                             </form>
                           {% endif %}
                         </div>
@@ -139,11 +145,17 @@
                         <button class="btn btn-sm btn-soft" type="submit">Pobierz ponownie</button>
                       </form>
                     {% endif %}
+                    <form action="{{ ingress_url('web.delete_history_record') }}" method="post" class="history-delete-form d-inline" data-title="{{ item.title }}">
+                      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="filename" value="{{ item.filename }}">
+                      <input type="hidden" name="downloaded_at" value="{{ item.downloaded_at }}">
+                      <button class="btn btn-sm btn-outline-danger" type="submit">Usuń wpis</button>
+                    </form>
                     {% if item.file_exists %}
                       <a class="btn btn-sm btn-outline-primary" href="{{ ingress_url('web.downloaded', filename=item.filename) }}">Pobierz plik</a>
                       <form action="{{ ingress_url('web.delete', filename=item.filename) }}" method="post" class="delete-form d-inline" data-filename="{{ item.filename }}" data-filesize-label="{{ item.size|filesize if item.size is defined and item.size is not none else 'brak danych' }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                        <button class="btn btn-sm btn-outline-danger" type="submit">Usuń</button>
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Usuń plik</button>
                       </form>
                     {% else %}
                       <span class="badge text-bg-secondary">plik usunięty</span>

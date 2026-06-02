@@ -218,9 +218,39 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn('data-history-type="best"', body)
         self.assertIn('data-history-status="completed"', body)
         self.assertIn('class="repeat-download-form"', body)
+        self.assertIn('class="history-delete-form"', body)
         self.assertIn(">Pobierz ponownie</button>", body)
+        self.assertIn(">Usuń wpis</button>", body)
+        self.assertIn(">Usuń plik</button>", body)
         self.assertIn('name="url" value="https://youtu.be/example"', body)
         self.assertIn('name="download_type" value="best"', body)
+
+    def test_history_record_can_be_deleted_without_removing_file(self) -> None:
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Example",
+            "https://youtu.be/example",
+            "best",
+            target.name,
+            "completed",
+        )
+        record = files.history()[0]
+        response = self.client.post(
+            "/history/delete",
+            data={
+                "_csrf_token": self._csrf_token(),
+                "filename": record["filename"],
+                "downloaded_at": record["downloaded_at"],
+            },
+            follow_redirects=True,
+        )
+        self.assertEqual(files.history(), [])
+        self.assertTrue(target.is_file())
+        self.assertIn(
+            "Wpis został usunięty z historii.", response.get_data(as_text=True)
+        )
 
     def test_history_repeat_download_is_available_after_file_deletion(self) -> None:
         files = self.app.extensions["file_service"]
@@ -236,6 +266,7 @@ class ApplicationTestCase(unittest.TestCase):
         files.delete_file(target.name)
         body = self.client.get("/").get_data(as_text=True)
         self.assertIn(">Pobierz ponownie</button>", body)
+        self.assertIn(">Usuń wpis</button>", body)
         self.assertIn('name="download_type" value="video-720"', body)
         self.assertIn('class="badge text-bg-secondary"', body)
 

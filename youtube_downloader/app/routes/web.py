@@ -272,6 +272,23 @@ def delete(filename: str):
     return redirect(ingress_url("web.index"))
 
 
+@web_bp.post("/history/delete")
+def delete_history_record():
+    """Delete one download history record without removing its file."""
+
+    if not _valid_form():
+        return redirect(ingress_url("web.index"))
+    deleted = _file_service().delete_history_record(
+        request.form.get("filename", ""),
+        request.form.get("downloaded_at", ""),
+    )
+    if deleted:
+        flash("Wpis został usunięty z historii.", "success")
+    else:
+        flash("Nie znaleziono wpisu w historii.", "warning")
+    return redirect(ingress_url("web.index"))
+
+
 @web_bp.app_errorhandler(404)
 def not_found(_: Any):
     return render_template("error.html", message="Nie znaleziono żądanej strony."), 404

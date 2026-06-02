@@ -73,6 +73,15 @@
     });
   });
 
+  document.querySelectorAll(".history-delete-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      const title = form.dataset.title || "brak danych";
+      if (!window.confirm(`Czy na pewno usunąć wpis z historii?\n\nTytuł: ${title}`)) {
+        event.preventDefault();
+      }
+    });
+  });
+
   document.querySelectorAll(".download-form").forEach((form) => {
     const downloadType = form.querySelector('[name="download_type"]');
     const formatId = form.querySelector('[name="format_id"]');

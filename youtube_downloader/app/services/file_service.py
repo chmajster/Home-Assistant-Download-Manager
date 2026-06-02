@@ -271,6 +271,22 @@ class FileService:
                     record["file_exists"] = False
             self._write_history(records)
 
+    def delete_history_record(self, filename: str, downloaded_at: str) -> bool:
+        """Delete one matching history record without removing its downloaded file."""
+
+        with self._history_lock:
+            records = self._read_history()
+            for index, record in enumerate(records):
+                if (
+                    record.get("filename") == filename
+                    and record.get("downloaded_at") == downloaded_at
+                ):
+                    del records[index]
+                    self._write_history(records)
+                    LOGGER.info("Usunięto wpis historii dla pliku %s", filename)
+                    return True
+        return False
+
     def _read_history(self) -> list[dict[str, Any]]:
         try:
             with self.history_file.open("r", encoding="utf-8") as file_handle:
