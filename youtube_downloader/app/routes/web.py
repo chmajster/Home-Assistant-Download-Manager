@@ -170,6 +170,57 @@ def stop_live(job_id: str):
     return redirect(ingress_url("web.jobs"))
 
 
+@web_bp.post("/jobs/delete/<job_id>")
+def delete_job(job_id: str):
+    """Delete one inactive job from the queue."""
+
+    if not _valid_form():
+        return redirect(ingress_url("web.jobs"))
+    try:
+        _job_manager().delete_job(job_id)
+        flash("Zadanie zostało usunięte.", "success")
+    except KeyError:
+        flash("Nie znaleziono zadania.", "warning")
+    except MediaServiceError as error:
+        flash(str(error), "warning")
+    return redirect(ingress_url("web.jobs"))
+
+
+@web_bp.post("/jobs/delete")
+def delete_jobs():
+    """Delete selected inactive jobs from the queue."""
+
+    if not _valid_form():
+        return redirect(ingress_url("web.jobs"))
+    job_ids = request.form.getlist("job_ids")
+    if not job_ids:
+        flash("Zaznacz zadania, które chcesz usunąć.", "warning")
+        return redirect(ingress_url("web.jobs"))
+    removed, skipped = _job_manager().delete_jobs(job_ids)
+    _flash_deleted_jobs(removed, skipped)
+    return redirect(ingress_url("web.jobs"))
+
+
+@web_bp.post("/jobs/clear")
+def clear_jobs():
+    """Delete all inactive jobs from the queue."""
+
+    if not _valid_form():
+        return redirect(ingress_url("web.jobs"))
+    removed, skipped = _job_manager().clear_jobs()
+    _flash_deleted_jobs(removed, skipped)
+    return redirect(ingress_url("web.jobs"))
+
+
+def _flash_deleted_jobs(removed: int, skipped: int) -> None:
+    if removed:
+        flash(f"Usunięto zadania: {removed}.", "success")
+    elif not skipped:
+        flash("Brak zakończonych zadań do usunięcia.", "warning")
+    if skipped:
+        flash(f"Pominięto aktywne zadania: {skipped}.", "warning")
+
+
 @web_bp.get("/jobs")
 def jobs():
     """Render active and completed jobs."""

@@ -203,6 +203,9 @@
     console.error("Nie można odczytać listy aktywnych statusów:", error);
   }
   const isActiveJob = (job) => activeJobStatuses.has(job.status);
+  const removableJobStatuses = new Set(["completed", "error", "stopped", "interrupted"]);
+  const isRemovableJob = (job) => removableJobStatuses.has(job.status);
+  const selectedJobIds = new Set();
 
   const statusBadge = (job) => {
     const colors = {
@@ -258,10 +261,15 @@
     return link;
   };
 
-  const actionForm = (action, label, className) => {
+  const actionForm = (action, label, className, confirmation = "") => {
     const form = document.createElement("form");
     form.method = "post";
     form.action = action;
+    if (confirmation) {
+      form.addEventListener("submit", (event) => {
+        if (!window.confirm(confirmation)) event.preventDefault();
+      });
+    }
     const token = document.createElement("input");
     token.type = "hidden";
     token.name = "_csrf_token";
@@ -272,9 +280,62 @@
     return form;
   };
 
+  const syncJobSelectionControls = () => {
+    document.querySelectorAll(".job-select").forEach((checkbox) => {
+      checkbox.checked = selectedJobIds.has(checkbox.value);
+    });
+    const inputs = document.getElementById("jobs-selected-inputs");
+    inputs?.replaceChildren();
+    selectedJobIds.forEach((jobId) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "job_ids";
+      input.value = jobId;
+      inputs?.append(input);
+    });
+    const count = document.getElementById("jobs-selected-count");
+    if (count) count.textContent = String(selectedJobIds.size);
+    const button = document.getElementById("jobs-delete-selected");
+    if (button) button.disabled = selectedJobIds.size === 0;
+  };
+
+  const updateJobsToolbar = (jobs) => {
+    const jobsById = new Map(jobs.map((job) => [job.job_id, job]));
+    selectedJobIds.forEach((jobId) => {
+      const job = jobsById.get(jobId);
+      if (!job || !isRemovableJob(job)) selectedJobIds.delete(jobId);
+    });
+    const removableJobs = jobs.filter(isRemovableJob);
+    document.getElementById("jobs-toolbar")?.classList.toggle("d-none", jobs.length === 0);
+    const selectAll = document.getElementById("jobs-select-all");
+    if (selectAll) {
+      const selectedCount = removableJobs.filter((job) => selectedJobIds.has(job.job_id)).length;
+      selectAll.disabled = removableJobs.length === 0;
+      selectAll.checked = removableJobs.length > 0 && selectedCount === removableJobs.length;
+      selectAll.indeterminate = selectedCount > 0 && selectedCount < removableJobs.length;
+    }
+    syncJobSelectionControls();
+  };
+
+  const jobSelection = (job) => {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "form-check-input job-select";
+    checkbox.value = job.job_id;
+    checkbox.checked = selectedJobIds.has(job.job_id);
+    checkbox.disabled = !isRemovableJob(job);
+    checkbox.setAttribute("aria-label", `Zaznacz zadanie ${job.title}`);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) selectedJobIds.add(job.job_id);
+      else selectedJobIds.delete(job.job_id);
+      updateJobsToolbar(lastSuccessfulJobs || []);
+    });
+    return checkbox;
+  };
+
   const jobActions = (job) => {
     const actions = document.createElement("span");
-    actions.className = "d-flex gap-2";
+    actions.className = "d-flex flex-wrap gap-2";
     if (job.is_live && ["pending", "downloading"].includes(job.status)) {
       actions.append(actionForm(
         route(`/live/stop/${encodeURIComponent(job.job_id)}`),
@@ -294,6 +355,14 @@
         "btn btn-sm btn-outline-primary"
       ));
     }
+    if (isRemovableJob(job)) {
+      actions.append(actionForm(
+        route(`/jobs/delete/${encodeURIComponent(job.job_id)}`),
+        "Usuń",
+        "btn btn-sm btn-outline-danger",
+        `Czy na pewno usunąć zadanie „${job.title}” z listy?`
+      ));
+    }
     return actions;
   };
 
@@ -303,6 +372,8 @@
     body.replaceChildren();
     jobs.forEach((job) => {
       const row = document.createElement("tr");
+      const selectCell = document.createElement("td");
+      selectCell.append(jobSelection(job));
       const titleCell = document.createElement("td");
       titleCell.append(
         text("strong", job.title),
@@ -321,7 +392,7 @@
       outputCell.append(outputLink(job));
       const actionCell = document.createElement("td");
       actionCell.append(jobActions(job));
-      row.append(titleCell, typeCell, statusCell, progressCell, sizeCell, speedCell, etaCell, outputCell, actionCell);
+      row.append(selectCell, titleCell, typeCell, statusCell, progressCell, sizeCell, speedCell, etaCell, outputCell, actionCell);
       body.append(row);
     });
   };
@@ -341,8 +412,11 @@
       const error = text("small", job.error_message || "", "d-block text-danger mb-2");
       const warning = text("small", job.warning_message || "", "d-block text-warning mb-2");
       const actions = document.createElement("div");
-      actions.className = "d-flex gap-2 align-items-center";
-      actions.append(outputLink(job), jobActions(job));
+      actions.className = "d-flex flex-wrap gap-2 align-items-center";
+      const selection = document.createElement("label");
+      selection.className = "form-check d-flex gap-2 align-items-center mb-0";
+      selection.append(jobSelection(job), text("span", "Zaznacz", "form-check-label"));
+      actions.append(selection, outputLink(job), jobActions(job));
       card.append(heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), error, warning, actions);
       list.append(card);
     });
@@ -357,9 +431,30 @@
     updateActiveJobsBadge(jobs);
     if (!document.getElementById("jobs-table-body")) return;
     document.getElementById("jobs-empty")?.classList.toggle("d-none", jobs.length > 0);
+    updateJobsToolbar(jobs);
     renderTable(jobs);
     renderCards(jobs);
   };
+
+  document.getElementById("jobs-select-all")?.addEventListener("change", (event) => {
+    (lastSuccessfulJobs || []).filter(isRemovableJob).forEach((job) => {
+      if (event.target.checked) selectedJobIds.add(job.job_id);
+      else selectedJobIds.delete(job.job_id);
+    });
+    updateJobsToolbar(lastSuccessfulJobs || []);
+  });
+
+  document.getElementById("jobs-delete-selected-form")?.addEventListener("submit", (event) => {
+    if (!selectedJobIds.size || !window.confirm(`Czy na pewno usunąć zaznaczone zadania (${selectedJobIds.size})?`)) {
+      event.preventDefault();
+    }
+  });
+
+  document.getElementById("jobs-clear-form")?.addEventListener("submit", (event) => {
+    if (!window.confirm("Czy na pewno wyczyścić listę zakończonych zadań? Aktywne zadania pozostaną na liście.")) {
+      event.preventDefault();
+    }
+  });
 
   const setJobsRefreshError = (visible) => {
     document.getElementById("jobs-refresh-error")?.classList.toggle("d-none", !visible);

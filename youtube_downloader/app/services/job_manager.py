@@ -71,6 +71,7 @@ class JobManager:
     ACTIVE_STATUSES = {"pending", "downloading", "stopping"}
     STOPPABLE_STATUSES = {"pending", "downloading"}
     RESUMABLE_STATUSES = {"stopped", "interrupted"}
+    REMOVABLE_STATUSES = {"completed", "error", "stopped", "interrupted"}
     STATUS_LABELS = {
         "pending": "oczekuje",
         "downloading": "pobieranie",
@@ -229,6 +230,48 @@ class JobManager:
             jobs = [Job(**asdict(job)) for job in self._jobs.values()]
         return sorted(jobs, key=lambda item: item.created_at, reverse=True)
 
+    def delete_job(self, job_id: str) -> None:
+        """Delete one inactive job from the persistent queue."""
+
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job:
+                raise KeyError(job_id)
+            if job.status not in self.REMOVABLE_STATUSES:
+                raise MediaServiceError(
+                    "Aktywnego zadania nie można usunąć. Najpierw je zatrzymaj."
+                )
+            del self._jobs[job_id]
+            self._persist_jobs()
+        LOGGER.info("Usunięto zadanie %s", job_id)
+
+    def delete_jobs(self, job_ids: list[str]) -> tuple[int, int]:
+        """Delete selected inactive jobs and report skipped active records."""
+
+        removed = 0
+        skipped = 0
+        with self._lock:
+            for job_id in set(job_ids):
+                job = self._jobs.get(job_id)
+                if not job:
+                    continue
+                if job.status not in self.REMOVABLE_STATUSES:
+                    skipped += 1
+                    continue
+                del self._jobs[job_id]
+                removed += 1
+            if removed:
+                self._persist_jobs()
+        LOGGER.info("Usunięto %s zadań, pominięto aktywnych: %s", removed, skipped)
+        return removed, skipped
+
+    def clear_jobs(self) -> tuple[int, int]:
+        """Delete every inactive job while preserving active operations."""
+
+        with self._lock:
+            job_ids = list(self._jobs)
+        return self.delete_jobs(job_ids)
+
     def job_dict(self, job: Job) -> dict[str, Any]:
         """Serialize a job with labels consumed by JSON clients."""
 
@@ -262,7 +305,9 @@ class JobManager:
         try:
             with self._slots:
                 with self._lock:
-                    job = self._jobs[job_id]
+                    job = self._jobs.get(job_id)
+                    if not job:
+                        return
                     if stop_event.is_set():
                         if self._stop_events.get(job_id) is stop_event:
                             self._finish(job, "stopped")
@@ -354,7 +399,10 @@ class JobManager:
         stop_event = self._stop_events[job_id]
         with self._slots:
             with self._lock:
-                job = self._jobs[job_id]
+                job = self._jobs.get(job_id)
+                if not job:
+                    self._stop_events.pop(job_id, None)
+                    return
                 if stop_event.is_set():
                     self._finish(job, "stopped")
                     self._stop_events.pop(job_id, None)

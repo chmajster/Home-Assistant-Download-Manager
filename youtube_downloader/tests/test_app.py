@@ -57,6 +57,11 @@ class ApplicationTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
+    def _csrf_token(self) -> str:
+        self.client.get("/jobs")
+        with self.client.session_transaction() as session:
+            return session["_csrf_token"]
+
     def test_healthcheck(self) -> None:
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 200)
@@ -86,8 +91,64 @@ class ApplicationTestCase(unittest.TestCase):
             self.assertIn("jobsViewVisible ? 500 : 2500", body)
             self.assertIn('cache: "no-store"', body)
             self.assertIn('"visibilitychange"', body)
+            self.assertIn("selectedJobIds", body)
+            self.assertIn("/jobs/delete/", body)
         finally:
             response.close()
+
+    def test_jobs_page_exposes_delete_toolbar(self) -> None:
+        body = self.client.get("/jobs").get_data(as_text=True)
+        self.assertIn('id="jobs-delete-selected-form"', body)
+        self.assertIn('id="jobs-clear-form"', body)
+        self.assertIn('id="jobs-select-all"', body)
+
+    def test_inactive_job_can_be_deleted_from_jobs_page(self) -> None:
+        manager = self.app.extensions["job_manager"]
+        job = manager._new_job("https://youtu.be/abc", "Example", "best", is_live=False)
+        manager.stop_download(job.job_id)
+        response = self.client.post(
+            f"/jobs/delete/{job.job_id}",
+            data={"_csrf_token": self._csrf_token()},
+            follow_redirects=True,
+        )
+        self.assertEqual(manager.list_jobs(), [])
+        self.assertIn("Zadanie zostało usunięte.", response.get_data(as_text=True))
+
+    def test_selected_jobs_can_be_deleted_from_jobs_page(self) -> None:
+        manager = self.app.extensions["job_manager"]
+        jobs = [
+            manager._new_job("https://youtu.be/abc", "Example", "best", is_live=False)
+            for _ in range(2)
+        ]
+        for job in jobs:
+            manager.stop_download(job.job_id)
+        response = self.client.post(
+            "/jobs/delete",
+            data={
+                "_csrf_token": self._csrf_token(),
+                "job_ids": [job.job_id for job in jobs],
+            },
+            follow_redirects=True,
+        )
+        self.assertEqual(manager.list_jobs(), [])
+        self.assertIn("Usunięto zadania: 2.", response.get_data(as_text=True))
+
+    def test_clear_jobs_preserves_active_records(self) -> None:
+        manager = self.app.extensions["job_manager"]
+        active = manager._new_job(
+            "https://youtu.be/active", "Active", "best", is_live=False
+        )
+        inactive = manager._new_job(
+            "https://youtu.be/done", "Done", "best", is_live=False
+        )
+        manager.stop_download(inactive.job_id)
+        response = self.client.post(
+            "/jobs/clear",
+            data={"_csrf_token": self._csrf_token()},
+            follow_redirects=True,
+        )
+        self.assertEqual([job.job_id for job in manager.list_jobs()], [active.job_id])
+        self.assertIn("Pominięto aktywne zadania: 1.", response.get_data(as_text=True))
 
     def test_managed_file_can_be_downloaded(self) -> None:
         downloads = self.app.extensions["file_service"].download_dir
@@ -617,6 +678,29 @@ class JobManagerTestCase(unittest.TestCase):
             FakeMediaService(self.download_dir), self.files, max_concurrent_jobs=1
         )
         self.assertEqual(restored.list_jobs(), [])
+
+    def test_active_job_cannot_be_deleted(self) -> None:
+        job = self.manager._new_job(
+            "https://youtu.be/abc", "Example", "best", is_live=False
+        )
+        with self.assertRaises(MediaServiceError):
+            self.manager.delete_job(job.job_id)
+
+    def test_delete_jobs_removes_inactive_and_preserves_active_records(self) -> None:
+        active = self.manager._new_job(
+            "https://youtu.be/active", "Active", "best", is_live=False
+        )
+        inactive = self.manager._new_job(
+            "https://youtu.be/done", "Done", "best", is_live=False
+        )
+        self.manager.stop_download(inactive.job_id)
+        self.assertEqual(
+            self.manager.delete_jobs([active.job_id, inactive.job_id]), (1, 1)
+        )
+        self.assertEqual(
+            [job.job_id for job in self.manager.list_jobs()], [active.job_id]
+        )
+        self.assertEqual(self.manager.clear_jobs(), (0, 1))
 
     def test_disk_full_error_is_visible_on_job(self) -> None:
         error = OSError(errno.ENOSPC, "No space left on device")

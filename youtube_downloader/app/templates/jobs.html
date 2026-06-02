@@ -11,6 +11,20 @@
   </div>
   <section class="card app-card">
     <div class="card-body">
+      <div id="jobs-toolbar" class="d-flex flex-wrap gap-2 align-items-center mb-3{% if not jobs %} d-none{% endif %}">
+        <form id="jobs-delete-selected-form" method="post" action="{{ ingress_url('web.delete_jobs') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <span id="jobs-selected-inputs"></span>
+          <button id="jobs-delete-selected" class="btn btn-sm btn-outline-danger" type="submit" disabled>
+            Usuń zaznaczone (<span id="jobs-selected-count">0</span>)
+          </button>
+        </form>
+        <form id="jobs-clear-form" method="post" action="{{ ingress_url('web.clear_jobs') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button id="jobs-clear" class="btn btn-sm btn-outline-danger" type="submit">Wyczyść listę</button>
+        </form>
+        <small class="text-body-secondary">Aktywne zadania pozostają na liście.</small>
+      </div>
       <div id="jobs-empty" class="empty-state{% if jobs %} d-none{% endif %}">
         <span class="empty-state-mark" aria-hidden="true">+</span>
         <strong>Brak zadań w tej sesji</strong>
@@ -18,7 +32,7 @@
       </div>
       <div class="desktop-only table-responsive">
         <table class="table align-middle mb-0">
-          <thead><tr><th>Tytuł</th><th>Typ</th><th>Status</th><th>Postęp</th><th>Rozmiar</th><th>Prędkość</th><th>ETA</th><th>Wynik</th><th></th></tr></thead>
+          <thead><tr><th><input id="jobs-select-all" class="form-check-input" type="checkbox" aria-label="Zaznacz wszystkie zakończone zadania"></th><th>Tytuł</th><th>Typ</th><th>Status</th><th>Postęp</th><th>Rozmiar</th><th>Prędkość</th><th>ETA</th><th>Wynik</th><th></th></tr></thead>
           <tbody id="jobs-table-body"></tbody>
         </table>
       </div>

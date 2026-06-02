@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.14
+
+- Dodano usuwanie pojedynczych zakończonych zadań z widoku `Zadania`.
+- Dodano zaznaczanie wielu rekordów i przycisk `Usuń zaznaczone`.
+- Dodano czyszczenie listy zadań z zachowaniem aktywnych pobrań i zapisów live.
+
 ## 1.3.13
 
 - Widok `Zadania` odświeża postęp pobierania na żywo co `500 ms` i synchronizuje się natychmiast po powrocie do karty.
