@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.11
+
+- Dodano proste komunikaty błędów dla problemów z internetem, braku miejsca na dysku oraz błędów `ffmpeg`.
+- Nieudane generowanie miniatury nie przerywa poprawnego pobrania filmu: panel pokazuje ostrzeżenie w historii i przy zadaniu.
+
 ## 1.3.10
 
 - Dodano przycisk `Pobierz ponownie` przy rekordach historii zwykłych pobrań, także po usunięciu lokalnego pliku.

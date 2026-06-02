@@ -302,7 +302,11 @@
     jobs.forEach((job) => {
       const row = document.createElement("tr");
       const titleCell = document.createElement("td");
-      titleCell.append(text("strong", job.title), text("small", job.error_message || "", "job-error d-block text-danger"));
+      titleCell.append(
+        text("strong", job.title),
+        text("small", job.error_message || "", "job-error d-block text-danger"),
+        text("small", job.warning_message || "", "job-error d-block text-warning")
+      );
       const typeCell = text("td", downloadTypeLabel(job.download_type));
       const statusCell = document.createElement("td");
       statusCell.append(statusBadge(job));
@@ -333,10 +337,11 @@
       const progress = progressBar(job);
       progress.classList.add("my-2");
       const error = text("small", job.error_message || "", "d-block text-danger mb-2");
+      const warning = text("small", job.warning_message || "", "d-block text-warning mb-2");
       const actions = document.createElement("div");
       actions.className = "d-flex gap-2 align-items-center";
       actions.append(outputLink(job), jobActions(job));
-      card.append(heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), error, actions);
+      card.append(heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), error, warning, actions);
       list.append(card);
     });
   };

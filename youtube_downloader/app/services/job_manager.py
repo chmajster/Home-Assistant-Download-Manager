@@ -10,12 +10,14 @@ import signal
 import subprocess
 import threading
 import uuid
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .error_messages import operational_error_message
 from .file_service import FileService
 from .media_service import MediaService, MediaServiceError
 
@@ -57,6 +59,7 @@ class Job:
     started_at: str | None = None
     finished_at: str | None = None
     error_message: str | None = None
+    warning_message: str | None = None
     output_file: str | None = None
     output_files: list[str] = field(default_factory=list)
     is_live: bool = False
@@ -151,6 +154,7 @@ class JobManager:
             job.status = "pending"
             job.finished_at = None
             job.error_message = None
+            job.warning_message = None
             job.speed = None
             job.eta = None
             stop_event = threading.Event()
@@ -334,9 +338,13 @@ class JobManager:
                         self._finish(self._jobs[job_id], "stopped")
                 except MediaServiceError as error:
                     self._fail(job_id, str(error))
-                except Exception:
+                except Exception as error:
                     LOGGER.exception("Nieoczekiwany błąd zadania %s", job_id)
-                    self._fail(job_id, "Nieoczekiwany błąd podczas pobierania.")
+                    self._fail(
+                        job_id,
+                        operational_error_message(str(error))
+                        or "Nieoczekiwany błąd podczas pobierania.",
+                    )
         finally:
             with self._lock:
                 if self._stop_events.get(job_id) is stop_event:
@@ -353,6 +361,7 @@ class JobManager:
                     return
                 self._start(job)
             paths: set[Path] = set()
+            output_lines: deque[str] = deque(maxlen=40)
             try:
                 command = self.media_service.live_command(job.url)
                 process = subprocess.Popen(
@@ -367,6 +376,7 @@ class JobManager:
                     self._live_processes[job_id] = process
                 assert process.stdout is not None
                 for line in process.stdout:
+                    output_lines.append(line)
                     LOGGER.info("[live %s] %s", job_id[:8], line.rstrip())
                     self._parse_live_line(job_id, line, paths)
                     if stop_event.is_set() and process.poll() is None:
@@ -385,11 +395,18 @@ class JobManager:
                     active.downloaded_bytes = self._output_size(files)
                     active.total_bytes = active.downloaded_bytes
                     if status == "error":
-                        active.error_message = "yt-dlp nie mógł zapisać transmisji live. Sprawdź logi dodatku."
+                        active.error_message = (
+                            operational_error_message("".join(output_lines))
+                            or "yt-dlp nie mógł zapisać transmisji live. Sprawdź logi dodatku."
+                        )
                     self._finish(active, status)
-            except Exception:
+            except Exception as error:
                 LOGGER.exception("Błąd procesu live %s", job_id)
-                self._fail(job_id, "Nie udało się uruchomić zapisu transmisji live.")
+                self._fail(
+                    job_id,
+                    operational_error_message(str(error))
+                    or "Nie udało się uruchomić zapisu transmisji live.",
+                )
             finally:
                 with self._lock:
                     self._live_processes.pop(job_id, None)
@@ -423,15 +440,18 @@ class JobManager:
             ):
                 files.append(path.name)
                 try:
-                    thumbnail_filename = self.file_service.generate_thumbnail(path.name)
+                    thumbnail = self.file_service.generate_thumbnail(path.name)
+                    if thumbnail.warning_message and not job.warning_message:
+                        job.warning_message = thumbnail.warning_message
                     self.file_service.record_download(
                         job.title,
                         job.url,
                         job.download_type,
                         path.name,
                         status,
-                        thumbnail_filename,
+                        thumbnail.filename,
                         job.format_id,
+                        thumbnail.warning_message,
                     )
                 except (FileNotFoundError, ValueError):
                     LOGGER.warning("Pominięto wynik poza katalogiem pobrań: %s", path)

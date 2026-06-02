@@ -98,6 +98,8 @@ W Home Assistant otwórz kartę dodatku:
 3. Karta **Konfiguracja** pokazuje opcje zapisane przez Supervisor.
 4. Jeśli analiza przestaje działać po zmianach serwisu, sprawdź log startowy aktualizacji `yt-dlp`.
 
+Panel pokazuje uproszczone komunikaty dla najczęstszych problemów: braku połączenia z internetem lub serwisem źródłowym, braku miejsca w katalogu pobrań oraz błędów `ffmpeg`. Nieudana miniatura nie blokuje gotowego filmu; w takim przypadku historia pokazuje ostrzeżenie.
+
 Build obrazu nie pobiera już pakietów z serwerów Alpine ani PyPI wewnątrz kroków `RUN`. Statyczne binaria `ffmpeg` i `ffprobe` są kopiowane z wieloarchitekturowego obrazu, a zależności Python instalowane z lokalnego katalogu `wheels/`. Jeśli Docker nadal zgłasza błąd DNS podczas pobierania obrazu bazowego, sprawdź połączenie sieciowe i DNS hosta Home Assistant.
 
 Przy starcie aktualizowany jest `yt-dlp`, a nie serwisy źródłowe. Jeśli aktualizacja się nie uda, dodatek uruchamia poprzednią wersję extractora.

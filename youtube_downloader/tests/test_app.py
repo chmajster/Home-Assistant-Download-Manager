@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import tempfile
 import threading
 import time
@@ -11,7 +12,14 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from app import create_app
-from app.services.file_service import FileService
+from app.services.error_messages import (
+    FFMPEG_ERROR_MESSAGE,
+    INTERNET_ERROR_MESSAGE,
+    STORAGE_ERROR_MESSAGE,
+    THUMBNAIL_FFMPEG_WARNING,
+    THUMBNAIL_STORAGE_WARNING,
+)
+from app.services.file_service import FileService, ThumbnailResult
 from app.services.ha_options import (
     _network_mount_root,
     _validated_storage_mode,
@@ -185,6 +193,21 @@ class ApplicationTestCase(unittest.TestCase):
         body = self.client.get("/").get_data(as_text=True)
         self.assertNotIn(">Pobierz ponownie</button>", body)
 
+    def test_history_displays_thumbnail_warning(self) -> None:
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Example",
+            "https://youtu.be/example",
+            "best",
+            target.name,
+            "completed",
+            warning_message=THUMBNAIL_FFMPEG_WARNING,
+        )
+        body = self.client.get("/").get_data(as_text=True)
+        self.assertIn(THUMBNAIL_FFMPEG_WARNING, body)
+
     def test_result_displays_format_download_button(self) -> None:
         media = {
             "is_live": False,
@@ -294,6 +317,30 @@ class MediaFormatSelectionTestCase(unittest.TestCase):
         self.assertEqual(selection, "bestvideo*+bestaudio/best")
 
 
+class MediaErrorMessageTestCase(unittest.TestCase):
+    """Convert common operational failures into useful user-facing messages."""
+
+    def test_network_error_is_explained(self) -> None:
+        self.assertEqual(
+            MediaService.polish_error("Unable to download webpage: timed out"),
+            INTERNET_ERROR_MESSAGE,
+        )
+
+    def test_missing_disk_space_is_explained(self) -> None:
+        self.assertEqual(
+            MediaService.polish_error("[Errno 28] No space left on device"),
+            STORAGE_ERROR_MESSAGE,
+        )
+
+    def test_ffmpeg_error_is_explained(self) -> None:
+        self.assertEqual(
+            MediaService.polish_error(
+                "ERROR: Postprocessing: ffmpeg conversion failed"
+            ),
+            FFMPEG_ERROR_MESSAGE,
+        )
+
+
 class HomeAssistantOptionsTestCase(unittest.TestCase):
     """Validate Home Assistant network-storage option helpers."""
 
@@ -340,9 +387,10 @@ class FileServiceThumbnailTestCase(unittest.TestCase):
         with patch("app.services.file_service.subprocess.run", side_effect=fake_ffmpeg):
             thumbnail = self.files.generate_thumbnail(video.name)
 
-        self.assertEqual(thumbnail, "example.mp4.jpg")
+        self.assertEqual(thumbnail.filename, "example.mp4.jpg")
+        self.assertIsNone(thumbnail.warning_message)
         self.assertEqual(
-            self.files.resolve_thumbnail(thumbnail).read_bytes(), b"thumbnail"
+            self.files.resolve_thumbnail(thumbnail.filename).read_bytes(), b"thumbnail"
         )
         self.assertEqual(
             [item["filename"] for item in self.files.list_files()], ["example.mp4"]
@@ -353,7 +401,7 @@ class FileServiceThumbnailTestCase(unittest.TestCase):
             "best",
             video.name,
             "completed",
-            thumbnail,
+            thumbnail.filename,
         )
         self.assertTrue(self.files.history()[0]["thumbnail_exists"])
         self.files.delete_file(video.name)
@@ -363,7 +411,9 @@ class FileServiceThumbnailTestCase(unittest.TestCase):
         audio = self.files.download_dir / "example.mp3"
         audio.write_bytes(b"audio")
         with patch("app.services.file_service.subprocess.run") as ffmpeg:
-            self.assertIsNone(self.files.generate_thumbnail(audio.name))
+            result = self.files.generate_thumbnail(audio.name)
+        self.assertIsNone(result.filename)
+        self.assertIsNone(result.warning_message)
         ffmpeg.assert_not_called()
 
     def test_short_video_uses_first_frame_as_thumbnail_fallback(self) -> None:
@@ -381,8 +431,25 @@ class FileServiceThumbnailTestCase(unittest.TestCase):
         with patch("app.services.file_service.subprocess.run", side_effect=fake_ffmpeg):
             thumbnail = self.files.generate_thumbnail(video.name)
 
-        self.assertEqual(thumbnail, "short.mp4.jpg")
+        self.assertEqual(thumbnail.filename, "short.mp4.jpg")
         self.assertEqual(calls, 2)
+
+    def test_ffmpeg_failure_returns_thumbnail_warning(self) -> None:
+        video = self.files.download_dir / "example.mp4"
+        video.write_bytes(b"video")
+        failed = SimpleNamespace(returncode=1, stderr="ffmpeg conversion failed")
+        with patch("app.services.file_service.subprocess.run", return_value=failed):
+            result = self.files.generate_thumbnail(video.name)
+        self.assertIsNone(result.filename)
+        self.assertEqual(result.warning_message, THUMBNAIL_FFMPEG_WARNING)
+
+    def test_disk_full_returns_specific_thumbnail_warning(self) -> None:
+        video = self.files.download_dir / "example.mp4"
+        video.write_bytes(b"video")
+        failed = SimpleNamespace(returncode=1, stderr="No space left on device")
+        with patch("app.services.file_service.subprocess.run", return_value=failed):
+            result = self.files.generate_thumbnail(video.name)
+        self.assertEqual(result.warning_message, THUMBNAIL_STORAGE_WARNING)
 
 
 class FakeMediaService:
@@ -449,7 +516,7 @@ class JobManagerTestCase(unittest.TestCase):
         self.download_dir.mkdir()
         self.files = FileService(self.download_dir, root / "jobs" / "history.json")
         self.thumbnail_patcher = patch.object(
-            self.files, "generate_thumbnail", return_value=None
+            self.files, "generate_thumbnail", return_value=ThumbnailResult()
         )
         self.thumbnail_generator = self.thumbnail_patcher.start()
         self.manager = JobManager(
@@ -501,6 +568,24 @@ class JobManagerTestCase(unittest.TestCase):
             FakeMediaService(self.download_dir), self.files, max_concurrent_jobs=1
         )
         self.assertEqual(restored.list_jobs(), [])
+
+    def test_disk_full_error_is_visible_on_job(self) -> None:
+        error = OSError(errno.ENOSPC, "No space left on device")
+        with patch.object(self.manager.media_service, "download", side_effect=error):
+            job = self.manager.start_download("https://youtu.be/abc", "Example", "best")
+            failed = self._wait_for_status(job.job_id, "error")
+        self.assertEqual(failed.error_message, STORAGE_ERROR_MESSAGE)
+
+    def test_thumbnail_warning_is_visible_on_completed_job(self) -> None:
+        self.thumbnail_generator.return_value = ThumbnailResult(
+            warning_message=THUMBNAIL_FFMPEG_WARNING
+        )
+        job = self.manager.start_download("https://youtu.be/abc", "Example", "best")
+        completed = self._wait_for_status(job.job_id, "completed")
+        self.assertEqual(completed.warning_message, THUMBNAIL_FFMPEG_WARNING)
+        self.assertEqual(
+            self.files.history()[0]["warning_message"], THUMBNAIL_FFMPEG_WARNING
+        )
 
     def test_queued_download_can_be_stopped_and_resumed(self) -> None:
         self.manager._slots.acquire()

@@ -194,7 +194,9 @@ class FileService:
             LOGGER.warning(
                 "Nie mozna wygenerowac miniatury dla %s: %s", filename, error
             )
-            return ThumbnailResult(warning_message=thumbnail_warning_message(str(error)))
+            return ThumbnailResult(
+                warning_message=thumbnail_warning_message(str(error))
+            )
         finally:
             temporary.unlink(missing_ok=True)
 
