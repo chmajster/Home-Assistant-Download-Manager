@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.20
+
+- Dodano kolumnę `Tytuł` obok `Miniatura` w tabeli historii pobrań.
+
 ## 1.3.19
 
 - Dodano opcję uruchomienia panelu na osobnym porcie bez Home Assistant Ingress.
