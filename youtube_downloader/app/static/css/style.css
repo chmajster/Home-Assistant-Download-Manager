@@ -305,6 +305,31 @@ a:hover {
   width: 100%;
 }
 
+.job-thumbnail,
+.job-thumbnail-placeholder {
+  aspect-ratio: 16 / 9;
+  border-radius: 0.45rem;
+  display: block;
+  width: 5.5rem;
+}
+
+.job-thumbnail {
+  object-fit: cover;
+}
+
+.job-thumbnail-placeholder {
+  align-items: center;
+  background: rgba(103, 88, 232, 0.08);
+  color: var(--app-muted);
+  display: flex;
+  font-size: 0.85rem;
+  justify-content: center;
+}
+
+.job-thumbnail-mobile {
+  width: 100%;
+}
+
 .action-panel {
   position: sticky;
   top: 5.8rem;

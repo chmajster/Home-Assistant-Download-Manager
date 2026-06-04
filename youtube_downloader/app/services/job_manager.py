@@ -63,6 +63,7 @@ class Job:
     warning_message: str | None = None
     output_file: str | None = None
     output_files: list[str] = field(default_factory=list)
+    thumbnail_filename: str | None = None
     is_live: bool = False
 
 
@@ -312,6 +313,14 @@ class JobManager:
 
         payload = asdict(job)
         payload["status_label"] = self.STATUS_LABELS.get(job.status, job.status)
+        payload["thumbnail_exists"] = False
+        if job.thumbnail_filename:
+            try:
+                payload["thumbnail_exists"] = self.file_service.resolve_thumbnail(
+                    job.thumbnail_filename
+                ).is_file()
+            except (FileNotFoundError, OSError, ValueError):
+                payload["thumbnail_exists"] = False
         return payload
 
     def _new_job(
@@ -567,6 +576,8 @@ class JobManager:
                 files.append(path.name)
                 try:
                     thumbnail = self.file_service.generate_thumbnail(path.name)
+                    if thumbnail.filename and not job.thumbnail_filename:
+                        job.thumbnail_filename = thumbnail.filename
                     if thumbnail.warning_message and not job.warning_message:
                         job.warning_message = thumbnail.warning_message
                     self.file_service.record_download(

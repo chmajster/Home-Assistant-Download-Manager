@@ -271,6 +271,21 @@
     return link;
   };
 
+  const jobThumbnail = (job, mobile = false) => {
+    if (job.thumbnail_exists && job.thumbnail_filename) {
+      const image = document.createElement("img");
+      image.className = `job-thumbnail${mobile ? " job-thumbnail-mobile mb-3" : ""}`;
+      image.src = route(`/thumbnails/${encodeURIComponent(job.thumbnail_filename)}`);
+      image.alt = "";
+      image.loading = "lazy";
+      return image;
+    }
+    const placeholder = text("span", "-", `job-thumbnail-placeholder${mobile ? " job-thumbnail-mobile mb-3" : ""}`);
+    placeholder.title = "Brak miniatury";
+    placeholder.setAttribute("aria-label", "Brak miniatury");
+    return placeholder;
+  };
+
   const actionForm = (action, label, className, confirmation = "") => {
     const form = document.createElement("form");
     form.method = "post";
@@ -384,6 +399,8 @@
       const row = document.createElement("tr");
       const selectCell = document.createElement("td");
       selectCell.append(jobSelection(job));
+      const thumbnailCell = document.createElement("td");
+      thumbnailCell.append(jobThumbnail(job));
       const titleCell = document.createElement("td");
       titleCell.append(
         text("strong", job.title),
@@ -402,7 +419,7 @@
       outputCell.append(outputLink(job));
       const actionCell = document.createElement("td");
       actionCell.append(jobActions(job));
-      row.append(selectCell, titleCell, typeCell, statusCell, progressCell, sizeCell, speedCell, etaCell, outputCell, actionCell);
+      row.append(selectCell, thumbnailCell, titleCell, typeCell, statusCell, progressCell, sizeCell, speedCell, etaCell, outputCell, actionCell);
       body.append(row);
     });
   };
@@ -427,7 +444,7 @@
       selection.className = "form-check d-flex gap-2 align-items-center mb-0";
       selection.append(jobSelection(job), text("span", "Zaznacz", "form-check-label"));
       actions.append(selection, outputLink(job), jobActions(job));
-      card.append(heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), error, warning, actions);
+      card.append(jobThumbnail(job, true), heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), error, warning, actions);
       list.append(card);
     });
   };
