@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from typing import Any
 
 from flask import (
@@ -265,6 +266,56 @@ def downloaded(filename: str):
     try:
         path = _file_service().resolve_download(filename)
         return send_file(path, as_attachment=True, download_name=path.name)
+    except (FileNotFoundError, UnsafeFilenameError):
+        return render_template(
+            "error.html", message="Nie znaleziono pobranego pliku."
+        ), 404
+
+
+@web_bp.get("/view/<filename>")
+def preview(filename: str):
+    """Open one managed downloaded file in an inline browser preview."""
+
+    try:
+        path = _file_service().resolve_download(filename)
+    except (FileNotFoundError, UnsafeFilenameError):
+        return render_template(
+            "error.html", message="Nie znaleziono pobranego pliku."
+        ), 404
+
+    record = next(
+        (
+            item
+            for item in _file_service().history()
+            if item.get("filename") == path.name
+        ),
+        {},
+    )
+    mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    media_kind = "video" if mime_type.startswith("video/") else "audio"
+    if not mime_type.startswith(("video/", "audio/")):
+        media_kind = "file"
+    return render_template(
+        "preview.html",
+        title=record.get("title") or path.name,
+        filename=path.name,
+        mime_type=mime_type,
+        media_kind=media_kind,
+    )
+
+
+@web_bp.get("/media/<filename>")
+def media(filename: str):
+    """Serve one managed downloaded file inline for the preview player."""
+
+    try:
+        path = _file_service().resolve_download(filename)
+        return send_file(
+            path,
+            mimetype=mimetypes.guess_type(path.name)[0],
+            conditional=True,
+            download_name=path.name,
+        )
     except (FileNotFoundError, UnsafeFilenameError):
         return render_template(
             "error.html", message="Nie znaleziono pobranego pliku."

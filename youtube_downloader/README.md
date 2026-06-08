@@ -1,8 +1,8 @@
 # Media Web Downloader
 
-Dodatek Home Assistant udostępnia przez Ingress panel do analizy i legalnego pobierania publicznych materiałów przez `yt-dlp`. Interfejs obsługuje YouTube, Instagram oraz Kick zgodnie z możliwościami bieżących extractorów.
+Dodatek Home Assistant udostępnia przez Ingress panel do analizy i legalnego pobierania publicznych materiałów przez `yt-dlp`. Interfejs obsługuje YouTube, Instagram, Kick oraz Twitch zgodnie z możliwościami bieżących extractorów.
 
-Obsługiwane są między innymi filmy, Shorts, playlisty, publiczne posty i reels Instagram oraz kanały live, VOD i klipy Kick. W bieżącej wersji `yt-dlp` zapis publicznego live działa dla YouTube i Kick. `yt-dlp` nie udostępnia osobnego extractora Instagram live, więc dodatek nie obiecuje zapisu transmisji Instagram.
+Obsługiwane są między innymi filmy, Shorts, playlisty, publiczne posty i reels Instagram oraz kanały live, VOD i klipy Kick oraz Twitch. W bieżącej wersji `yt-dlp` zapis publicznego live działa dla YouTube, Kick i Twitch. `yt-dlp` nie udostępnia osobnego extractora Instagram live, więc dodatek nie obiecuje zapisu transmisji Instagram.
 
 Obraz korzysta z oficjalnego wieloplatformowego `ghcr.io/home-assistant/base-python:3.14-alpine3.23` i wspiera aktualne architektury Home Assistant: `amd64` oraz `aarch64`. Platforma `armv7` nie jest już wspierana przez Home Assistant.
 
@@ -137,4 +137,4 @@ Przy starcie aktualizowany jest `yt-dlp`, a nie serwisy źródłowe. Jeśli aktu
 
 ## Bezpieczeństwo
 
-Dodatek akceptuje wyłącznie adresy HTTP i HTTPS z jawnie obsługiwanych domen YouTube, Instagram i Kick. Nie implementuje logowania, cookies, dostępu do prywatnych materiałów, omijania DRM ani paywalli. Pliki trafiają wyłącznie do skonfigurowanego katalogu w `/share` lub `/media`.
+Dodatek akceptuje wyłącznie adresy HTTP i HTTPS z jawnie obsługiwanych domen YouTube, Instagram, Kick i Twitch. Nie implementuje logowania, cookies, dostępu do prywatnych materiałów, omijania DRM ani paywalli. Pliki trafiają wyłącznie do skonfigurowanego katalogu w `/share` lub `/media`.

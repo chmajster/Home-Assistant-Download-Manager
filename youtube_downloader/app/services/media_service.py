@@ -24,6 +24,10 @@ ALLOWED_DOMAINS = {
     "www.instagram.com": "instagram",
     "kick.com": "kick",
     "www.kick.com": "kick",
+    "twitch.tv": "twitch",
+    "www.twitch.tv": "twitch",
+    "m.twitch.tv": "twitch",
+    "clips.twitch.tv": "twitch",
 }
 FORMAT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
 STORYBOARD_FORMAT_RE = re.compile(r"^sb\d+$", re.IGNORECASE)
@@ -67,7 +71,7 @@ class MediaService:
             )
         if host not in ALLOWED_DOMAINS:
             raise MediaServiceError(
-                "Dozwolone są wyłącznie obsługiwane domeny YouTube, Instagram i Kick."
+                "Dozwolone są wyłącznie obsługiwane domeny YouTube, Instagram, Kick i Twitch."
             )
         if not parts.path:
             raise MediaServiceError("Podaj pełny adres materiału lub kanału.")

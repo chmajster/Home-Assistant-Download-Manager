@@ -4,7 +4,7 @@ FROM mwader/static-ffmpeg:8.1.1 AS ffmpeg
 
 FROM ${BUILD_FROM}
 
-ARG BUILD_VERSION="1.3.20"
+ARG BUILD_VERSION="1.3.22"
 ARG BUILD_ARCH="amd64"
 
 COPY --from=ffmpeg /ffmpeg /usr/local/bin/ffmpeg
@@ -34,7 +34,7 @@ WORKDIR /
 
 LABEL \
     io.hass.name="Media Web Downloader" \
-    io.hass.description="Webowy downloader YouTube, Instagram i Kick oparty o yt-dlp" \
+    io.hass.description="Webowy downloader YouTube, Instagram, Kick i Twitch oparty o yt-dlp" \
     io.hass.version="${BUILD_VERSION}" \
     io.hass.type="app" \
     io.hass.arch="${BUILD_ARCH}" \

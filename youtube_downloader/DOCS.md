@@ -41,7 +41,7 @@ Historia przetrwa restart kontenera. Po skasowaniu materiału rekord pozostaje w
 
 ## Zapis transmisji live
 
-Aktywna transmisja live jest zapisywana przez osobny proces `yt-dlp`. Menedżer zadań przechowuje PID procesu, czyta jego postęp i pozwala wysłać bezpieczny sygnał przerwania z interfejsu. Jednoczesny drugi zapis tego samego URL jest odrzucany. Mechanizm działa dla publicznych transmisji zwracanych przez extractor jako aktywne live, w tym YouTube i Kick.
+Aktywna transmisja live jest zapisywana przez osobny proces `yt-dlp`. Menedżer zadań przechowuje PID procesu, czyta jego postęp i pozwala wysłać bezpieczny sygnał przerwania z interfejsu. Jednoczesny drugi zapis tego samego URL jest odrzucany. Mechanizm działa dla publicznych transmisji zwracanych przez extractor jako aktywne live, w tym YouTube, Kick i Twitch.
 
 Zaplanowana transmisja może zostać przeanalizowana, a przycisk **Oczekuj na live** uruchamia zadanie, które monitoruje start i rozpoczyna zapis automatycznie.
 

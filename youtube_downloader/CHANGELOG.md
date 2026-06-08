@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.22
+
+- Dodano obsługę publicznych kanałów, VOD i klipów Twitch obsługiwanych przez `yt-dlp`.
+
+## 1.3.21
+
+- Kliknięcie miniatury lub tytułu w historii pobrań otwiera podgląd filmu.
+- Dodano przycisk `Pobierz plik` w historii pobrań i na ekranie podglądu.
+
 ## 1.3.20
 
 - Dodano kolumnę `Tytuł` obok `Miniatura` w tabeli historii pobrań.

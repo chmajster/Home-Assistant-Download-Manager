@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} | Media Web Downloader{% endblock %}
+{% block content %}
+  <section class="page-heading d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <span class="eyebrow">Podgląd</span>
+      <h1 class="h3 mb-1">{{ title }}</h1>
+      <p class="section-copy mb-0 text-break">{{ filename }}</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-soft" href="{{ ingress_url('web.index') }}">Historia</a>
+      <a class="btn btn-accent" href="{{ ingress_url('web.downloaded', filename=filename) }}">Pobierz plik</a>
+    </div>
+  </section>
+
+  <section class="preview-stage">
+    {% if media_kind == "video" %}
+      <video class="preview-player" controls preload="metadata" autoplay>
+        <source src="{{ ingress_url('web.media', filename=filename) }}" type="{{ mime_type }}">
+      </video>
+    {% elif media_kind == "audio" %}
+      <div class="preview-audio">
+        <audio class="w-100" controls preload="metadata" autoplay>
+          <source src="{{ ingress_url('web.media', filename=filename) }}" type="{{ mime_type }}">
+        </audio>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <strong>Podgląd tego typu pliku nie jest dostępny</strong>
+        <small>Możesz pobrać plik przyciskiem powyżej.</small>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

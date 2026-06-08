@@ -183,6 +183,10 @@ a:hover {
   color: #298a4a;
 }
 
+.platform-twitch {
+  color: #6b45c9;
+}
+
 .hero-input-group {
   background: #fff;
   border: 1px solid rgba(103, 88, 232, 0.17);
@@ -300,6 +304,28 @@ a:hover {
   width: 6.5rem;
 }
 
+.history-thumbnail-link {
+  border-radius: 0.45rem;
+  display: inline-block;
+  line-height: 0;
+}
+
+.history-thumbnail-link:focus-visible,
+.history-title-link:focus-visible {
+  outline: 3px solid rgba(103, 88, 232, 0.34);
+  outline-offset: 3px;
+}
+
+.history-title-link {
+  color: var(--app-ink);
+  text-decoration: none;
+}
+
+.history-title-link:hover {
+  color: var(--app-primary-dark);
+  text-decoration: underline;
+}
+
 .history-thumbnail-mobile {
   display: block;
   width: 100%;
@@ -401,6 +427,25 @@ a:hover {
 .error-card {
   margin: 2rem auto;
   max-width: 44rem;
+}
+
+.preview-stage {
+  background: #111827;
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow);
+  overflow: hidden;
+}
+
+.preview-player {
+  aspect-ratio: 16 / 9;
+  background: #000;
+  display: block;
+  max-height: calc(100vh - 14rem);
+  width: 100%;
+}
+
+.preview-audio {
+  padding: 2rem;
 }
 
 .mobile-only {

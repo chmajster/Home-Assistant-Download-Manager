@@ -1,6 +1,6 @@
 # Media Web Downloader
 
-Repozytorium zawiera dodatek **Media Web Downloader** dla Home Assistant Supervisor. Dodatek uruchamia panel webowy oparty o Flask, Bootstrap 5 i `yt-dlp`. Służy do analizy oraz pobierania publicznych materiałów z YouTube, Instagram i Kick wyłącznie wtedy, gdy użytkownik ma do nich prawa lub może je legalnie pobrać.
+Repozytorium zawiera dodatek **Media Web Downloader** dla Home Assistant Supervisor. Dodatek uruchamia panel webowy oparty o Flask, Bootstrap 5 i `yt-dlp`. Służy do analizy oraz pobierania publicznych materiałów z YouTube, Instagram, Kick i Twitch wyłącznie wtedy, gdy użytkownik ma do nich prawa lub może je legalnie pobrać.
 
 Dodatek jest budowany dla oficjalnie wspieranych obecnie architektur Home Assistant: `amd64` oraz `aarch64`. Home Assistant wycofał wsparcie systemów 32-bitowych, w tym `armv7`.
 

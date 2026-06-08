@@ -166,6 +166,35 @@ class ApplicationTestCase(unittest.TestCase):
         finally:
             response.close()
 
+    def test_managed_file_can_be_opened_in_preview(self) -> None:
+        files = self.app.extensions["file_service"]
+        expected = files.download_dir / "example.mp4"
+        expected.write_bytes(b"media")
+        files.record_download(
+            "Example video",
+            "https://youtu.be/example",
+            "best",
+            expected.name,
+            "completed",
+        )
+        body = self.client.get("/view/example.mp4").get_data(as_text=True)
+        self.assertIn("Example video", body)
+        self.assertIn('<video class="preview-player"', body)
+        self.assertIn('src="/media/example.mp4"', body)
+        self.assertIn('href="/downloaded/example.mp4"', body)
+
+    def test_managed_file_can_be_streamed_inline(self) -> None:
+        downloads = self.app.extensions["file_service"].download_dir
+        expected = downloads / "example.mp4"
+        expected.write_bytes(b"media")
+        response = self.client.get("/media/example.mp4")
+        try:
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data, b"media")
+            self.assertNotIn("attachment", response.headers.get("Content-Disposition", ""))
+        finally:
+            response.close()
+
     def test_generated_thumbnail_can_be_displayed(self) -> None:
         files = self.app.extensions["file_service"]
         expected = files.thumbnail_dir / "example.mp4.jpg"
@@ -192,6 +221,7 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("platform-chip platform-youtube", body)
         self.assertIn("platform-chip platform-instagram", body)
         self.assertIn("platform-chip platform-kick", body)
+        self.assertIn("platform-chip platform-twitch", body)
         self.assertIn("hero-input-group", body)
         self.assertIn('class="col-12 history-panel"', body)
         self.assertNotIn('class="col-lg-7"', body)
@@ -200,6 +230,7 @@ class ApplicationTestCase(unittest.TestCase):
         body = self.client.get("/").get_data(as_text=True)
         self.assertIn('id="allowed-hosts"', body)
         self.assertIn("www.youtube.com", body)
+        self.assertIn("www.twitch.tv", body)
         self.assertIn('id="active-job-statuses"', body)
         self.assertIn("downloading", body)
 
@@ -229,6 +260,25 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn(">Usuń plik</button>", body)
         self.assertIn('name="url" value="https://youtu.be/example"', body)
         self.assertIn('name="download_type" value="best"', body)
+
+    def test_history_title_and_thumbnail_open_preview(self) -> None:
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        thumbnail = files.thumbnail_dir / "example.mp4.jpg"
+        thumbnail.write_bytes(b"thumbnail")
+        files.record_download(
+            "Example video",
+            "https://youtu.be/example",
+            "best",
+            target.name,
+            "completed",
+            thumbnail_filename=thumbnail.name,
+        )
+        body = self.client.get("/").get_data(as_text=True)
+        self.assertIn('class="history-thumbnail-link" href="/view/example.mp4"', body)
+        self.assertIn('class="history-title-link d-block" href="/view/example.mp4"', body)
+        self.assertIn('href="/downloaded/example.mp4">Pobierz plik</a>', body)
 
     def test_history_record_can_be_deleted_without_removing_file(self) -> None:
         files = self.app.extensions["file_service"]
@@ -437,6 +487,22 @@ class MediaUrlTestCase(unittest.TestCase):
         self.assertEqual(
             MediaService.detect_content_type({"is_live": True}, url), "live"
         )
+
+    def test_twitch_channel_vod_and_clip_are_supported(self) -> None:
+        channel_url = MediaService.validate_url("https://www.twitch.tv/example")
+        self.assertEqual(channel_url, "https://www.twitch.tv/example")
+        self.assertEqual(MediaService.detect_platform(channel_url), "twitch")
+        self.assertEqual(
+            MediaService.detect_content_type({"is_live": True}, channel_url), "live"
+        )
+
+        vod_url = MediaService.validate_url("https://www.twitch.tv/videos/123456")
+        self.assertEqual(vod_url, "https://www.twitch.tv/videos/123456")
+        self.assertEqual(MediaService.detect_platform(vod_url), "twitch")
+
+        clip_url = MediaService.validate_url("https://clips.twitch.tv/ExampleClip")
+        self.assertEqual(clip_url, "https://clips.twitch.tv/ExampleClip")
+        self.assertEqual(MediaService.detect_platform(clip_url), "twitch")
 
 
 class MediaFormatSelectionTestCase(unittest.TestCase):
