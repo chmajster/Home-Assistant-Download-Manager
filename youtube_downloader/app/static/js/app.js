@@ -5,6 +5,7 @@
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
   const jobsViewVisible = Boolean(document.getElementById("jobs-table-body"));
   const jobsRefreshIntervalMs = jobsViewVisible ? 500 : 2500;
+  const themeStorageKey = "media-web-downloader-theme";
   let allowedHosts = new Set();
   try {
     allowedHosts = new Set(JSON.parse(document.getElementById("allowed-hosts")?.textContent || "[]"));
@@ -13,6 +14,48 @@
   }
 
   const route = (path) => `${ingressPath}${path}`;
+
+  const preferredTheme = () => (
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  );
+
+  const storedTheme = () => {
+    try {
+      const theme = localStorage.getItem(themeStorageKey);
+      return theme === "dark" || theme === "light" ? theme : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const syncThemeToggle = (theme) => {
+    const button = document.querySelector("[data-theme-toggle]");
+    if (!button) return;
+    const nextTheme = theme === "dark" ? "jasny" : "ciemny";
+    button.setAttribute("aria-label", `Zmień motyw na ${nextTheme}`);
+    button.setAttribute("title", `Zmień motyw na ${nextTheme}`);
+    button.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+  };
+
+  const applyTheme = (theme, persist = false) => {
+    document.documentElement.setAttribute("data-bs-theme", theme);
+    document.documentElement.style.colorScheme = theme;
+    if (persist) {
+      try {
+        localStorage.setItem(themeStorageKey, theme);
+      } catch {
+        // Browser storage can be unavailable in hardened WebViews.
+      }
+    }
+    syncThemeToggle(theme);
+  };
+
+  applyTheme(storedTheme() || document.documentElement.getAttribute("data-bs-theme") || preferredTheme());
+
+  document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
+    const currentTheme = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "dark" : "light";
+    applyTheme(currentTheme === "dark" ? "light" : "dark", true);
+  });
 
   const text = (tag, value, className = "") => {
     const node = document.createElement(tag);

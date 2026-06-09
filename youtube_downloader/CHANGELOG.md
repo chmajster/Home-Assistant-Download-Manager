@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.47
+
+- Dodano przełącznik motywu jasny/ciemny w navbarze z ikoną słońca/księżyca.
+- Wybrany motyw jest zapisywany w przeglądarce i ustawiany przed załadowaniem widoku.
+
 ## 1.3.46
 
 - W `Wyniku analizy` dodano klikalny link `Źródło` z analizowanym adresem URL.

@@ -633,6 +633,18 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("www.twitch.tv", body)
         self.assertIn('id="active-job-statuses"', body)
         self.assertIn("downloading", body)
+        self.assertIn('id="theme-toggle"', body)
+        self.assertIn('data-theme-toggle', body)
+        self.assertIn("media-web-downloader-theme", body)
+        self.assertIn("☀", body)
+        self.assertIn("☾", body)
+
+    def test_frontend_toggles_theme(self) -> None:
+        script = self.client.get("/static/js/app.js").get_data(as_text=True)
+        self.assertIn("media-web-downloader-theme", script)
+        self.assertIn("data-bs-theme", script)
+        self.assertIn("localStorage.setItem", script)
+        self.assertIn("[data-theme-toggle]", script)
 
     def test_history_delete_form_contains_filename_and_size(self) -> None:
         files = self.app.extensions["file_service"]
