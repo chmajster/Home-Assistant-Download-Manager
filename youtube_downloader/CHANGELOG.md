@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.31
+
+- Dodano automatyczne tagi historii, m.in. `youtube`, `twitch`, `kick`, `audio`, `video`, `live` i `1080p`.
+- Wyszukiwarka historii uwzględnia tagi automatyczne razem z ręcznymi.
+
 ## 1.3.30
 
 - Dodano ręczne tagowanie wpisów na stronie `Historia`, np. `muzyka`, `tutoriale`, `live` albo `archiwum`.

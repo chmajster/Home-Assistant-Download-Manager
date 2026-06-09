@@ -118,6 +118,13 @@
                         {% endfor %}
                       </div>
                     {% endif %}
+                    {% if item.visible_auto_tags %}
+                      <div class="d-flex flex-wrap gap-1 mb-2">
+                        {% for tag in item.visible_auto_tags %}
+                          <span class="badge text-bg-secondary">{{ tag }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
                     <div class="input-group input-group-sm history-tags-editor">
                       <input class="form-control" name="tags" value="{{ item.tags_label }}" placeholder="muzyka, tutoriale, live" form="{{ tag_form_id }}">
                       <button class="btn btn-soft" type="submit" form="{{ tag_form_id }}">Zapisz</button>
@@ -176,6 +183,13 @@
                 <div class="d-flex flex-wrap gap-1 mt-2">
                   {% for tag in item.tags %}
                     <span class="badge text-bg-light">{{ tag }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+              {% if item.visible_auto_tags %}
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                  {% for tag in item.visible_auto_tags %}
+                    <span class="badge text-bg-secondary">{{ tag }}</span>
                   {% endfor %}
                 </div>
               {% endif %}

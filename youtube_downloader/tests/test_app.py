@@ -637,6 +637,52 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn(">archiwum</span>", body)
         self.assertIn(">live</span>", body)
 
+    def test_history_adds_automatic_tags(self) -> None:
+        files = self.app.extensions["file_service"]
+        samples = [
+            (
+                "Sound clip",
+                "https://youtu.be/audio",
+                "audio",
+                "audio.mp3",
+                "audio",
+            ),
+            (
+                "Twitch HD",
+                "https://www.twitch.tv/videos/123",
+                "video-1080",
+                "twitch.mp4",
+                "1080p",
+            ),
+            (
+                "Stream archive",
+                "https://kick.com/channel",
+                "live",
+                "live.mp4",
+                "live",
+            ),
+        ]
+        for title, url, download_type, filename, _ in samples:
+            target = files.download_dir / filename
+            target.write_text("media", encoding="utf-8")
+            files.record_download(title, url, download_type, filename, "completed")
+
+        body = self.client.get("/history").get_data(as_text=True)
+        for expected_tag in ("youtube", "audio", "twitch", "video", "1080p", "kick", "live"):
+            with self.subTest(expected_tag=expected_tag):
+                self.assertIn(f">{expected_tag}</span>", body)
+
+        for query, expected_title in (
+            ("1080p", "Twitch HD"),
+            ("audio", "Sound clip"),
+            ("live", "Stream archive"),
+        ):
+            with self.subTest(query=query):
+                result = self.client.get(
+                    "/history", query_string={"q": query}
+                ).get_data(as_text=True)
+                self.assertIn(expected_title, result)
+
     def test_history_title_and_thumbnail_open_preview(self) -> None:
         files = self.app.extensions["file_service"]
         target = files.download_dir / "example.mp4"

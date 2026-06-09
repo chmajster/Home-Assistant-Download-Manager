@@ -119,7 +119,11 @@ def _history_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         item = dict(record)
         item["platform"] = _history_platform(str(item.get("url") or ""))
         item["tags"] = normalize_history_tags(item.get("tags"))
+        item["auto_tags"] = _automatic_history_tags(item)
+        item["visible_auto_tags"] = _visible_auto_tags(item["tags"], item["auto_tags"])
+        item["all_tags"] = _combined_history_tags(item["tags"], item["auto_tags"])
         item["tags_label"] = ", ".join(item["tags"])
+        item["all_tags_label"] = ", ".join(item["all_tags"])
         item["size_label"] = _filesize_label(item.get("size"))
         item["duration_label"] = _duration_label(item.get("duration"))
         item["downloaded_at_label"] = str(item.get("downloaded_at") or "").replace(
@@ -134,6 +138,44 @@ def _history_platform(url: str) -> str:
         return MediaService.detect_platform(MediaService.validate_url(url))
     except MediaServiceError:
         return "unknown"
+
+
+def _automatic_history_tags(item: dict[str, Any]) -> list[str]:
+    tags: list[str] = []
+    platform = str(item.get("platform") or "")
+    download_type = str(item.get("type") or "")
+    filename = str(item.get("filename") or "").casefold()
+
+    if platform and platform != "unknown":
+        tags.append(platform)
+    if download_type == "live":
+        tags.append("live")
+    if download_type == "audio" or filename.endswith((".mp3", ".m4a", ".opus")):
+        tags.append("audio")
+    if download_type in {"best", "video"} or download_type.startswith("video-"):
+        tags.append("video")
+    if download_type.startswith("video-"):
+        tags.append(download_type.removeprefix("video-") + "p")
+    if download_type == "format":
+        tags.append("format")
+    return normalize_history_tags(tags)
+
+
+def _visible_auto_tags(manual_tags: list[str], auto_tags: list[str]) -> list[str]:
+    manual = {tag.casefold() for tag in manual_tags}
+    return [tag for tag in auto_tags if tag.casefold() not in manual]
+
+
+def _combined_history_tags(
+    manual_tags: list[str], auto_tags: list[str]
+) -> list[str]:
+    combined = list(manual_tags)
+    seen = {tag.casefold() for tag in combined}
+    for tag in auto_tags:
+        if tag.casefold() not in seen:
+            combined.append(tag)
+            seen.add(tag.casefold())
+    return combined
 
 
 def _filter_history(records: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
@@ -216,7 +258,10 @@ def _history_search_text(item: dict[str, Any]) -> str:
         item.get("type"),
         item.get("status"),
         item.get("tags"),
+        item.get("auto_tags"),
+        item.get("all_tags"),
         item.get("tags_label"),
+        item.get("all_tags_label"),
     ]
     return " ".join(str(value) for value in values if value is not None).casefold()
 
