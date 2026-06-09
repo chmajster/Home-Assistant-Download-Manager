@@ -1360,6 +1360,8 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn('class="btn btn-sm btn-soft format-download"', body)
         self.assertIn('data-format-id="137"', body)
         self.assertIn('name="duration" value="10"', body)
+        self.assertIn('href="https://youtu.be/example"', body)
+        self.assertIn('target="_blank" rel="noreferrer"', body)
         self.assertIn('<option value="video-1080">1080p</option>', body)
         self.assertIn('<option value="video-720">720p</option>', body)
         self.assertIn('<option value="video-360">360p</option>', body)

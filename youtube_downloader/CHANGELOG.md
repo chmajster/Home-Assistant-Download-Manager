@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.46
+
+- W `Wyniku analizy` dodano klikalny link `Źródło` z analizowanym adresem URL.
+
 ## 1.3.45
 
 - Zakończone transmisje ze statusem `was_live` są traktowane jak zapisane filmy i można je pobrać zwykłym formularzem.

@@ -42,6 +42,7 @@
             <dt class="col-sm-4">Kanał</dt><dd class="col-sm-8">{{ media.channel }}</dd>
             <dt class="col-sm-4">ID kanału</dt><dd class="col-sm-8">{{ media.channel_id or "brak danych" }}</dd>
             <dt class="col-sm-4">Serwis</dt><dd class="col-sm-8">{{ media.platform }}</dd>
+            <dt class="col-sm-4">Źródło</dt><dd class="col-sm-8"><a class="text-break" href="{{ media.url }}" target="_blank" rel="noreferrer">{{ media.url }}</a></dd>
             <dt class="col-sm-4">Typ</dt><dd class="col-sm-8">{{ media.content_type }}</dd>
             <dt class="col-sm-4">Czas trwania</dt><dd class="col-sm-8">{{ media.duration|duration if media.duration else "brak danych" }}</dd>
             <dt class="col-sm-4">Status live</dt><dd class="col-sm-8">{{ media.live_status or "nie dotyczy" }}</dd>
