@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.40
+
+- Dodano automatyczne ponawianie błędnych zadań: do 3 prób z opóźnieniem 5 minut.
+- Harmonogram automatycznego ponowienia jest zapisywany w trwałej kolejce i odtwarzany po restarcie.
+
+## 1.3.39
+
+- Dodano ostrzeżenia o możliwych duplikatach po analizie URL, gdy ten sam URL albo podobny tytuł/plik jest już w historii lub kolejce.
+- Bezpośredni start pobierania pokazuje ostrzeżenie o duplikacie, ale nie blokuje świadomego ponownego pobrania.
+
+## 1.3.38
+
+- Dodano zwijany podgląd ostatnich linii logu `yt-dlp` przy zadaniach.
+- Log zadań jest zapisywany w trwałej kolejce i widoczny przez odświeżane API.
+
+## 1.3.37
+
+- Dodano przycisk `Kopiuj błąd` przy nieudanych zadaniach, kopiujący komunikat błędu do schowka.
+
 ## 1.3.36
 
 - Dodano filtr `Błędy` w widoku `Zadania`, panel z krótkim wyjaśnieniem oraz szybkie akcje dla nieudanych zadań.

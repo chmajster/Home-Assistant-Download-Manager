@@ -106,6 +106,14 @@ class ApplicationTestCase(unittest.TestCase):
             self.assertIn("jobs-failed-count", body)
             self.assertIn("data-jobs-filter", body)
             self.assertIn("jobErrorHint", body)
+            self.assertIn("job-error-copy", body)
+            self.assertIn("copyTextToClipboard", body)
+            self.assertIn("navigator.clipboard", body)
+            self.assertIn("jobLogBlock", body)
+            self.assertIn("log_lines", body)
+            self.assertIn("jobAutoRetryBlock", body)
+            self.assertIn("next_retry_at", body)
+            self.assertIn("auto_retry_attempts", body)
         finally:
             response.close()
 
@@ -316,6 +324,126 @@ class ApplicationTestCase(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(updater.calls, 1)
+
+    def test_analyze_warns_when_url_was_already_downloaded(self) -> None:
+        class FakeUpdater:
+            def ensure_recent(self) -> bool:
+                return True
+
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Existing video",
+            "https://youtu.be/example",
+            "best",
+            target.name,
+            "completed",
+        )
+        self.app.extensions["ytdlp_updater"] = FakeUpdater()
+        media = {
+            "url": "https://youtu.be/example",
+            "platform": "youtube",
+            "title": "Existing video",
+            "channel": "Channel",
+            "channel_id": None,
+            "duration": 120,
+            "thumbnail": None,
+            "content_type": "video",
+            "live_status": None,
+            "is_live": False,
+            "playlist_count": None,
+            "entries": [],
+            "formats": [],
+        }
+        with patch.object(self.app.extensions["media_service"], "analyze", return_value=media):
+            body = self.client.post(
+                "/analyze",
+                data={"_csrf_token": self._csrf_token(), "url": media["url"]},
+            ).get_data(as_text=True)
+
+        self.assertIn("Możliwy duplikat", body)
+        self.assertIn("Ten URL", body)
+        self.assertIn("Existing video", body)
+        self.assertIn("example.mp4", body)
+        self.assertIn('name="allow_duplicate" value="1"', body)
+
+    def test_analyze_warns_when_title_matches_existing_file(self) -> None:
+        class FakeUpdater:
+            def ensure_recent(self) -> bool:
+                return True
+
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Same title",
+            "https://youtu.be/old",
+            "best",
+            target.name,
+            "completed",
+        )
+        self.app.extensions["ytdlp_updater"] = FakeUpdater()
+        media = {
+            "url": "https://youtu.be/new",
+            "platform": "youtube",
+            "title": "Same title",
+            "channel": "Channel",
+            "channel_id": None,
+            "duration": None,
+            "thumbnail": None,
+            "content_type": "video",
+            "live_status": None,
+            "is_live": False,
+            "playlist_count": None,
+            "entries": [],
+            "formats": [],
+        }
+        with patch.object(self.app.extensions["media_service"], "analyze", return_value=media):
+            body = self.client.post(
+                "/analyze",
+                data={"_csrf_token": self._csrf_token(), "url": media["url"]},
+            ).get_data(as_text=True)
+
+        self.assertIn("Możliwy duplikat", body)
+        self.assertIn("Podobny tytuł lub plik", body)
+        self.assertIn("Same title", body)
+
+    def test_start_download_flashes_duplicate_warning_for_direct_post(self) -> None:
+        class FakeUpdater:
+            def ensure_recent(self) -> bool:
+                return True
+
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Existing video",
+            "https://youtu.be/example",
+            "best",
+            target.name,
+            "completed",
+        )
+        self.app.extensions["ytdlp_updater"] = FakeUpdater()
+        manager = self.app.extensions["job_manager"]
+        with patch.object(
+            manager,
+            "start_download",
+            return_value=SimpleNamespace(job_id="12345678"),
+        ):
+            body = self.client.post(
+                "/download",
+                data={
+                    "_csrf_token": self._csrf_token(),
+                    "url": "https://youtu.be/example",
+                    "title": "Existing video",
+                    "download_type": "best",
+                },
+                follow_redirects=True,
+            ).get_data(as_text=True)
+
+        self.assertIn("Uwaga: ten URL", body)
+        self.assertIn("Uruchomiono zadanie", body)
 
     def test_index_displays_storage_usage(self) -> None:
         response = self.client.get("/")
@@ -1488,6 +1616,20 @@ class BlockingMediaService(FakeMediaService):
         return [target]
 
 
+class FlakyMediaService(FakeMediaService):
+    """Fail once and then succeed so automatic retry can be tested quickly."""
+
+    def __init__(self, download_dir: Path) -> None:
+        super().__init__(download_dir)
+        self.calls = 0
+
+    def download(self, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            raise MediaServiceError("network")
+        return super().download(**kwargs)
+
+
 class FakeNotifier:
     """Collect notification payloads synchronously for assertions."""
 
@@ -1520,6 +1662,8 @@ class JobManagerTestCase(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
+        for timer in list(self.manager._retry_timers.values()):
+            timer.cancel()
         self.manager._executor.shutdown()
         self.thumbnail_patcher.stop()
         self.temp_dir.cleanup()
@@ -1533,6 +1677,7 @@ class JobManagerTestCase(unittest.TestCase):
         self.assertEqual(completed.output_file, "example.mp4")
         self.assertEqual(completed.downloaded_bytes, 5)
         self.assertEqual(completed.total_bytes, 5)
+        self.assertTrue(any("[download]" in line for line in completed.log_lines))
         self.assertEqual(self.files.history()[0]["title"], "Example")
         self.assertEqual(self.files.history()[0]["size"], 5)
         self.assertEqual(self.files.history()[0]["duration"], 125)
@@ -1544,6 +1689,7 @@ class JobManagerTestCase(unittest.TestCase):
             FakeMediaService(self.download_dir), self.files, max_concurrent_jobs=1
         )
         self.assertEqual(restored.get_job(job.job_id).status, "completed")
+        self.assertTrue(restored.get_job(job.job_id).log_lines)
 
     def test_pending_job_is_restored_as_interrupted(self) -> None:
         job = self.manager._new_job(
@@ -1603,6 +1749,19 @@ class JobManagerTestCase(unittest.TestCase):
         self.assertEqual(len(self.notifier.jobs), 1)
         self.assertEqual(self.notifier.jobs[0].status, "error")
         self.assertEqual(self.notifier.jobs[0].error_message, STORAGE_ERROR_MESSAGE)
+
+    def test_failed_download_is_automatically_retried(self) -> None:
+        flaky = FlakyMediaService(self.download_dir)
+        self.manager.media_service = flaky
+
+        with patch("app.services.job_manager.AUTO_RETRY_DELAY_SECONDS", 0.01):
+            job = self.manager.start_download("https://youtu.be/abc", "Example", "best")
+            completed = self._wait_for_status(job.job_id, "completed")
+
+        self.assertEqual(flaky.calls, 2)
+        self.assertEqual(completed.auto_retry_attempts, 1)
+        self.assertEqual(completed.next_retry_at, None)
+        self.assertTrue(any("[retry]" in line for line in completed.log_lines))
 
     def test_failed_downloads_can_be_retried(self) -> None:
         job = self.manager._new_job(

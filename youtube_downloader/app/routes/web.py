@@ -70,6 +70,72 @@ def _duration_value(value: object) -> int | None:
     return seconds if seconds >= 0 else None
 
 
+def _duplicate_key(value: object) -> str:
+    return " ".join(str(value or "").casefold().split())
+
+
+def _duplicate_url_key(value: object) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    try:
+        return MediaService.validate_url(raw)
+    except MediaServiceError:
+        return raw
+
+
+def _duplicate_download_warnings(url: str, title: str = "") -> list[dict[str, str]]:
+    """Return compact duplicate warnings for the analyzed or queued media."""
+
+    normalized_url = _duplicate_url_key(url)
+    title_key = _duplicate_key(title)
+    warnings: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(kind: str, source: str, item_title: object, detail: object = "") -> None:
+        key = (kind, str(detail or item_title or source))
+        if key in seen:
+            return
+        seen.add(key)
+        warnings.append(
+            {
+                "kind": kind,
+                "source": source,
+                "title": str(item_title or "Bez tytułu"),
+                "detail": str(detail or ""),
+            }
+        )
+
+    for record in _file_service().history():
+        record_url = _duplicate_url_key(record.get("url"))
+        record_title = str(record.get("title") or "")
+        filename = str(record.get("filename") or "")
+        if record_url == normalized_url:
+            add("url", "history", record_title, filename)
+        elif title_key and record.get("file_exists") and _duplicate_key(record_title) == title_key:
+            add("file", "history", record_title, filename)
+
+    for job in _job_manager().list_jobs():
+        if job.status not in JobManager.ACTIVE_STATUSES:
+            continue
+        if _duplicate_url_key(job.url) == normalized_url:
+            add("url", "queue", job.title, job.job_id[:8])
+        elif title_key and _duplicate_key(job.title) == title_key:
+            add("file", "queue", job.title, job.job_id[:8])
+    return warnings[:5]
+
+
+def _flash_duplicate_warnings(warnings: list[dict[str, str]]) -> None:
+    if not warnings:
+        return
+    first = warnings[0]
+    if first["kind"] == "url":
+        message = "Uwaga: ten URL był już pobierany lub jest teraz w kolejce."
+    else:
+        message = "Uwaga: podobny plik lub tytuł był już pobrany albo jest teraz w kolejce."
+    flash(f"{message} Możesz kontynuować, jeśli robisz to celowo.", "warning")
+
+
 def _limited(bucket: str, limit: int, window: int = 60) -> bool:
     limiter = current_app.extensions["request_limiter"]
     remote = request.remote_addr or "unknown"
@@ -374,6 +440,10 @@ def analyze():
     try:
         _ensure_ytdlp_recent()
         media = _media_service().analyze(request.form.get("url", ""))
+        media["duplicate_warnings"] = _duplicate_download_warnings(
+            str(media.get("url") or ""),
+            str(media.get("title") or ""),
+        )
         return render_template("result.html", media=media)
     except MediaServiceError as error:
         return render_template("error.html", message=str(error)), 400
@@ -390,6 +460,13 @@ def start_download():
         return redirect(ingress_url("web.jobs"))
     try:
         _ensure_ytdlp_recent()
+        if not request.form.get("allow_duplicate"):
+            _flash_duplicate_warnings(
+                _duplicate_download_warnings(
+                    request.form.get("url", ""),
+                    request.form.get("title", ""),
+                )
+            )
         job = _job_manager().start_download(
             url=request.form.get("url", ""),
             title=request.form.get("title", ""),

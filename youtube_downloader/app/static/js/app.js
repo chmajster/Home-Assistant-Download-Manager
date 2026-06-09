@@ -363,11 +363,48 @@
     if (job.status !== "error" && !job.error_message) return document.createDocumentFragment();
     const wrapper = document.createElement("div");
     wrapper.className = "job-error-box mt-2";
+    const header = document.createElement("div");
+    header.className = "d-flex flex-wrap gap-2 justify-content-between align-items-start";
+    const message = text("strong", job.error_message || "Zadanie zakończyło się błędem.", "text-danger");
+    const copyButton = text("button", "Kopiuj błąd", "btn btn-sm btn-soft job-error-copy");
+    copyButton.type = "button";
+    copyButton.dataset.copyText = job.error_message || "Zadanie zakończyło się błędem.";
+    header.append(message, copyButton);
     wrapper.append(
-      text("strong", job.error_message || "Zadanie zakończyło się błędem.", "text-danger"),
+      header,
       text("small", jobErrorHint(job), "text-body-secondary")
     );
     return wrapper;
+  };
+
+  const jobAutoRetryBlock = (job) => {
+    const attempts = Number(job.auto_retry_attempts || 0);
+    const maxAttempts = Number(job.auto_retry_max_attempts || 0);
+    if (!attempts && !job.next_retry_at) return document.createDocumentFragment();
+    let label = "";
+    if (job.next_retry_at) {
+      const retryDate = new Date(job.next_retry_at);
+      const retryLabel = Number.isNaN(retryDate.getTime())
+        ? job.next_retry_at
+        : retryDate.toLocaleString();
+      label = `Automatyczne ponowienie ${attempts}/${maxAttempts}: ${retryLabel}`;
+    } else if (job.status === "error" && maxAttempts && attempts >= maxAttempts) {
+      label = `Wykorzystano automatyczne próby: ${attempts}/${maxAttempts}`;
+    } else if (attempts) {
+      label = `Automatyczne próby: ${attempts}/${maxAttempts || attempts}`;
+    }
+    return label ? text("small", label, "job-auto-retry d-block text-body-secondary mt-1") : document.createDocumentFragment();
+  };
+
+  const jobLogBlock = (job) => {
+    const lines = Array.isArray(job.log_lines) ? job.log_lines.filter(Boolean) : [];
+    if (!lines.length) return document.createDocumentFragment();
+    const details = document.createElement("details");
+    details.className = "job-log mt-2";
+    const summary = text("summary", `Log (${lines.length})`);
+    const pre = text("pre", lines.join("\n"));
+    details.append(summary, pre);
+    return details;
   };
 
   const outputLink = (job) => {
@@ -557,7 +594,9 @@
       titleCell.append(
         text("strong", job.title),
         jobErrorBlock(job),
-        text("small", job.warning_message || "", "job-error d-block text-warning")
+        jobAutoRetryBlock(job),
+        text("small", job.warning_message || "", "job-error d-block text-warning"),
+        jobLogBlock(job)
       );
       const typeCell = text("td", downloadTypeLabel(job.download_type));
       const statusCell = document.createElement("td");
@@ -595,7 +634,7 @@
       selection.className = "form-check d-flex gap-2 align-items-center mb-0";
       selection.append(jobSelection(job), text("span", "Zaznacz", "form-check-label"));
       actions.append(selection, outputLink(job), jobActions(job));
-      card.append(jobThumbnail(job, true), heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), jobErrorBlock(job), warning, actions);
+      card.append(jobThumbnail(job, true), heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), jobErrorBlock(job), jobAutoRetryBlock(job), warning, jobLogBlock(job), actions);
       list.append(card);
     });
   };
@@ -660,6 +699,39 @@
     const failedCount = (lastSuccessfulJobs || []).filter((job) => job.status === "error").length;
     if (!failedCount || !window.confirm(`Ponowić wszystkie nieudane zadania (${failedCount})?`)) {
       event.preventDefault();
+    }
+  });
+
+  const copyTextToClipboard = async (value) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+    const fallback = document.createElement("textarea");
+    fallback.value = value;
+    fallback.setAttribute("readonly", "readonly");
+    fallback.style.position = "fixed";
+    fallback.style.opacity = "0";
+    document.body.append(fallback);
+    fallback.select();
+    document.execCommand("copy");
+    fallback.remove();
+  };
+
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest(".job-error-copy");
+    if (!button) return;
+    const originalLabel = button.textContent;
+    try {
+      await copyTextToClipboard(button.dataset.copyText || "");
+      button.textContent = "Skopiowano";
+    } catch (error) {
+      console.error("Nie można skopiować błędu:", error);
+      button.textContent = "Błąd kopiowania";
+    } finally {
+      window.setTimeout(() => {
+        button.textContent = originalLabel;
+      }, 1600);
     }
   });
 

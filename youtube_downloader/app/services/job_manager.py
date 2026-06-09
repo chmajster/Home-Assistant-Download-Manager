@@ -13,7 +13,7 @@ import uuid
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field, fields
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,8 @@ DESTINATION_RE = re.compile(
     r"(?:Destination:|Merging formats into|Correcting container in|Extracting audio from)\s+[\"']?(?P<path>.+?)[\"']?$"
 )
 LIVE_WAIT_INTERVAL_SECONDS = 30
+AUTO_RETRY_DELAY_SECONDS = 300
+AUTO_RETRY_MAX_ATTEMPTS = 3
 
 
 class DownloadStoppedError(RuntimeError):
@@ -66,6 +68,10 @@ class Job:
     thumbnail_filename: str | None = None
     is_live: bool = False
     duration: int | None = None
+    log_lines: list[str] = field(default_factory=list)
+    auto_retry_attempts: int = 0
+    auto_retry_max_attempts: int = AUTO_RETRY_MAX_ATTEMPTS
+    next_retry_at: str | None = None
 
 
 class JobManager:
@@ -102,12 +108,14 @@ class JobManager:
         self._jobs: dict[str, Job] = {}
         self._live_processes: dict[str, subprocess.Popen[str]] = {}
         self._stop_events: dict[str, threading.Event] = {}
+        self._retry_timers: dict[str, threading.Timer] = {}
         self._lock = threading.RLock()
         self._slots = threading.BoundedSemaphore(max_concurrent_jobs)
         self._executor = ThreadPoolExecutor(
             max_workers=max_concurrent_jobs, thread_name_prefix="download"
         )
         self._load_jobs()
+        self._restore_auto_retries()
 
     def start_download(
         self,
@@ -168,10 +176,13 @@ class JobManager:
             if job.status not in self.RESUMABLE_STATUSES:
                 raise MediaServiceError("To zadanie nie może zostać wznowione.")
             self.media_service.format_selection(job.download_type, job.format_id)
+            self._cancel_retry_timer(job_id)
             job.status = "pending"
             job.finished_at = None
             job.error_message = None
             job.warning_message = None
+            job.auto_retry_attempts = 0
+            job.next_retry_at = None
             job.speed = None
             job.eta = None
             stop_event = threading.Event()
@@ -204,6 +215,7 @@ class JobManager:
                     if duplicate:
                         skipped += 1
                         continue
+                    self._cancel_retry_timer(job.job_id)
                     self._reset_for_retry(job)
                     stop_event = threading.Event()
                     self._stop_events[job.job_id] = stop_event
@@ -215,6 +227,7 @@ class JobManager:
                 except MediaServiceError:
                     skipped += 1
                     continue
+                self._cancel_retry_timer(job.job_id)
                 self._reset_for_retry(job)
                 stop_event = threading.Event()
                 self._stop_events[job.job_id] = stop_event
@@ -247,6 +260,7 @@ class JobManager:
                 raise MediaServiceError(
                     "Tylko zadanie ze statusem błędu można ponowić."
                 )
+            self._cancel_retry_timer(job_id)
             if job.is_live:
                 duplicate = any(
                     other.job_id != job.job_id
@@ -394,6 +408,7 @@ class JobManager:
                 raise MediaServiceError(
                     "Aktywnego zadania nie można usunąć. Najpierw je zatrzymaj."
                 )
+            self._cancel_retry_timer(job_id)
             del self._jobs[job_id]
             self._persist_jobs()
         LOGGER.info("Usunięto zadanie %s", job_id)
@@ -411,6 +426,7 @@ class JobManager:
                 if job.status not in self.REMOVABLE_STATUSES:
                     skipped += 1
                     continue
+                self._cancel_retry_timer(job_id)
                 del self._jobs[job_id]
                 removed += 1
             if removed:
@@ -458,6 +474,7 @@ class JobManager:
             format_id=format_id,
             is_live=is_live,
             duration=duration,
+            auto_retry_max_attempts=AUTO_RETRY_MAX_ATTEMPTS,
         )
         with self._lock:
             self._jobs[job.job_id] = job
@@ -465,7 +482,7 @@ class JobManager:
         return Job(**asdict(job))
 
     @staticmethod
-    def _reset_for_retry(job: Job) -> None:
+    def _reset_for_retry(job: Job, reset_auto_retry: bool = True) -> None:
         job.status = "pending"
         job.progress = 0.0
         job.downloaded_bytes = None
@@ -479,6 +496,174 @@ class JobManager:
         job.output_file = None
         job.output_files = []
         job.thumbnail_filename = None
+        job.next_retry_at = None
+        if reset_auto_retry:
+            job.auto_retry_attempts = 0
+            job.log_lines = []
+
+    def _cancel_retry_timer(self, job_id: str) -> None:
+        timer = self._retry_timers.pop(job_id, None)
+        if timer:
+            timer.cancel()
+
+    def _schedule_retry_timer(
+        self, job: Job, expected_attempt: int, delay_seconds: float
+    ) -> None:
+        self._cancel_retry_timer(job.job_id)
+        timer = threading.Timer(
+            max(0.0, delay_seconds),
+            self._run_scheduled_retry,
+            args=(job.job_id, expected_attempt),
+        )
+        timer.daemon = True
+        self._retry_timers[job.job_id] = timer
+        timer.start()
+
+    def _schedule_auto_retry(self, job: Job) -> None:
+        if job.auto_retry_max_attempts <= 0:
+            return
+        if job.auto_retry_attempts >= job.auto_retry_max_attempts:
+            job.next_retry_at = None
+            return
+        job.auto_retry_attempts += 1
+        retry_at = datetime.now(UTC) + timedelta(seconds=AUTO_RETRY_DELAY_SECONDS)
+        job.next_retry_at = retry_at.isoformat()
+        self._append_log_line(
+            job,
+            (
+                "[retry] Zaplanowano automatyczną próbę "
+                f"{job.auto_retry_attempts}/{job.auto_retry_max_attempts} "
+                f"o {job.next_retry_at}."
+            ),
+        )
+        self._persist_jobs()
+        self._schedule_retry_timer(
+            job, job.auto_retry_attempts, AUTO_RETRY_DELAY_SECONDS
+        )
+
+    def _restore_auto_retries(self) -> None:
+        changed = False
+        now = datetime.now(UTC)
+        with self._lock:
+            for job in self._jobs.values():
+                if job.status != "error" or not job.next_retry_at:
+                    continue
+                if job.auto_retry_attempts > job.auto_retry_max_attempts:
+                    job.next_retry_at = None
+                    changed = True
+                    continue
+                try:
+                    retry_at = datetime.fromisoformat(job.next_retry_at)
+                except ValueError:
+                    job.next_retry_at = None
+                    changed = True
+                    continue
+                delay = max(0.0, (retry_at - now).total_seconds())
+                self._schedule_retry_timer(job, job.auto_retry_attempts, delay)
+            if changed:
+                self._persist_jobs()
+
+    def _run_scheduled_retry(self, job_id: str, expected_attempt: int) -> None:
+        with self._lock:
+            self._retry_timers.pop(job_id, None)
+            job = self._jobs.get(job_id)
+            if (
+                not job
+                or job.status != "error"
+                or job.auto_retry_attempts != expected_attempt
+                or not job.next_retry_at
+            ):
+                return
+            if job.is_live:
+                duplicate = any(
+                    other.job_id != job.job_id
+                    and other.url == job.url
+                    and other.is_live
+                    and other.status in self.ACTIVE_STATUSES
+                    for other in self._jobs.values()
+                )
+                if duplicate:
+                    job.next_retry_at = None
+                    self._append_log_line(
+                        job,
+                        "[retry] Pominięto automatyczną próbę, live jest już aktywny.",
+                    )
+                    self._persist_jobs()
+                    return
+                self._reset_for_retry(job, reset_auto_retry=False)
+                stop_event = threading.Event()
+                self._stop_events[job.job_id] = stop_event
+                snapshot = Job(**asdict(job))
+                self._persist_jobs()
+            else:
+                try:
+                    self.media_service.format_selection(job.download_type, job.format_id)
+                except MediaServiceError as error:
+                    job.next_retry_at = None
+                    self._append_log_line(job, f"[retry] Nie można ponowić: {error}")
+                    self._persist_jobs()
+                    return
+                self._reset_for_retry(job, reset_auto_retry=False)
+                stop_event = threading.Event()
+                self._stop_events[job.job_id] = stop_event
+                snapshot = Job(**asdict(job))
+                self._persist_jobs()
+
+        LOGGER.info(
+            "Automatycznie ponawiam zadanie %s (%s/%s)",
+            job_id,
+            expected_attempt,
+            snapshot.auto_retry_max_attempts,
+        )
+        if snapshot.is_live:
+            thread = threading.Thread(
+                target=self._run_live,
+                args=(snapshot.job_id,),
+                daemon=True,
+                name=f"live-auto-retry-{snapshot.job_id[:8]}",
+            )
+            thread.start()
+        else:
+            self._executor.submit(self._run_download, snapshot.job_id, stop_event)
+
+    @staticmethod
+    def _append_log_line(job: Job, line: str, limit: int = 40) -> None:
+        cleaned = line.strip()
+        if not cleaned:
+            return
+        job.log_lines.append(cleaned)
+        if len(job.log_lines) > limit:
+            job.log_lines = job.log_lines[-limit:]
+
+    @classmethod
+    def _progress_log_line(cls, data: dict[str, Any]) -> str | None:
+        status = data.get("status")
+        if status == "downloading":
+            parts = [f"[download] {cls._percentage(data):.1f}%"]
+            downloaded = cls._byte_count(data.get("downloaded_bytes"))
+            total = cls._byte_count(data.get("total_bytes") or data.get("total_bytes_estimate"))
+            if downloaded is not None and total is not None:
+                parts.append(f"{downloaded}/{total} B")
+            speed = cls._display_speed(data.get("speed"))
+            eta = cls._display_eta(data.get("eta"))
+            if speed:
+                parts.append(f"at {speed}")
+            if eta:
+                parts.append(f"ETA {eta}")
+            return " ".join(parts)
+        if status == "finished":
+            filename = data.get("filename")
+            return f"[download] Finished: {filename}" if filename else "[download] Finished"
+        return None
+
+    @staticmethod
+    def _postprocessor_log_line(data: dict[str, Any]) -> str | None:
+        status = data.get("status")
+        postprocessor = data.get("postprocessor") or data.get("postprocessor_key")
+        if not status and not postprocessor:
+            return None
+        label = str(postprocessor or "postprocessor")
+        return f"[postprocess] {label}: {status or 'started'}"
 
     def _run_download(self, job_id: str, stop_event: threading.Event) -> None:
         try:
@@ -517,6 +702,9 @@ class JobManager:
                     collect_path(data)
                     with self._lock:
                         active = self._jobs[job_id]
+                        log_line = self._progress_log_line(data)
+                        if log_line:
+                            self._append_log_line(active, log_line)
                         if data.get("status") == "downloading":
                             active.progress = self._percentage(data)
                             active.downloaded_bytes = self._byte_count(
@@ -531,13 +719,21 @@ class JobManager:
                         elif data.get("status") == "finished":
                             active.progress = 100.0
 
+                def postprocessor_hook(data: dict[str, Any]) -> None:
+                    collect_path(data)
+                    with self._lock:
+                        active = self._jobs[job_id]
+                        log_line = self._postprocessor_log_line(data)
+                        if log_line:
+                            self._append_log_line(active, log_line)
+
                 try:
                     paths = self.media_service.download(
                         url=job.url,
                         download_type=job.download_type,
                         format_id=job.format_id,
                         progress_hook=progress_hook,
-                        postprocessor_hook=collect_path,
+                        postprocessor_hook=postprocessor_hook,
                     )
                     if stop_event.is_set():
                         raise DownloadStoppedError
@@ -609,6 +805,10 @@ class JobManager:
                 for line in process.stdout:
                     output_lines.append(line)
                     LOGGER.info("[live %s] %s", job_id[:8], line.rstrip())
+                    with self._lock:
+                        active = self._jobs.get(job_id)
+                        if active:
+                            self._append_log_line(active, line)
                     self._parse_live_line(job_id, line, paths)
                     if stop_event.is_set() and process.poll() is None:
                         self._interrupt_process(process)
@@ -810,8 +1010,10 @@ class JobManager:
     def _fail(self, job_id: str, message: str) -> None:
         with self._lock:
             job = self._jobs[job_id]
+            self._append_log_line(job, f"[error] {message}")
             job.error_message = message
             self._finish(job, "error")
+            self._schedule_auto_retry(job)
 
     def _load_jobs(self) -> None:
         """Restore persisted jobs and mark unfinished work as interrupted."""

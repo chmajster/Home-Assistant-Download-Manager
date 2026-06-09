@@ -467,6 +467,33 @@ audio.history-mini-player-media {
   display: block;
 }
 
+.job-error-copy {
+  flex-shrink: 0;
+}
+
+.job-auto-retry {
+  max-width: 24rem;
+}
+
+.job-log summary {
+  color: var(--app-primary-dark);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.job-log pre {
+  background: #111827;
+  border-radius: 0.45rem;
+  color: #e5e7eb;
+  font-size: 0.75rem;
+  margin: 0.45rem 0 0;
+  max-height: 12rem;
+  overflow: auto;
+  padding: 0.65rem;
+  white-space: pre-wrap;
+}
+
 .action-panel {
   position: sticky;
   top: 5.8rem;

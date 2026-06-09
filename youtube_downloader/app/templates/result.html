@@ -13,6 +13,23 @@
   {% elif media.content_type == "live" %}
     <div class="alert alert-info">Transmisja live nie jest obecnie aktywna. Status: {{ media.live_status or "brak danych" }}.</div>
   {% endif %}
+  {% if media.duplicate_warnings %}
+    <div class="alert alert-warning">
+      <strong>Możliwy duplikat</strong>
+      <ul class="mb-1 mt-2">
+        {% for warning in media.duplicate_warnings %}
+          <li>
+            {% if warning.kind == "url" %}
+              Ten URL jest już {% if warning.source == "queue" %}w kolejce{% else %}w historii{% endif %}: {{ warning.title }}{% if warning.detail %} ({{ warning.detail }}){% endif %}.
+            {% else %}
+              Podobny tytuł lub plik jest już {% if warning.source == "queue" %}w kolejce{% else %}w historii{% endif %}: {{ warning.title }}{% if warning.detail %} ({{ warning.detail }}){% endif %}.
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      <small>Możesz mimo to uruchomić pobieranie, jeśli chcesz mieć kolejną kopię albo inną jakość.</small>
+    </div>
+  {% endif %}
   <div class="row g-4">
     <div class="col-lg-7">
       <section class="card app-card overflow-hidden">
@@ -54,6 +71,7 @@
               <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="url" value="{{ media.url }}">
               <input type="hidden" name="title" value="{{ media.title }}">
+              {% if media.duplicate_warnings %}<input type="hidden" name="allow_duplicate" value="1">{% endif %}
               {% if media.duration %}<input type="hidden" name="duration" value="{{ media.duration }}">{% endif %}
               <label class="form-label" for="download-type">Wybierz wariant</label>
               <select class="form-select mb-3" id="download-type" name="download_type">
