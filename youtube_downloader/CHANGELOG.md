@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.36
+
+- Dodano filtr `Błędy` w widoku `Zadania`, panel z krótkim wyjaśnieniem oraz szybkie akcje dla nieudanych zadań.
+- Dodano ponawianie pojedynczego błędnego zadania z listy zadań.
+
 ## 1.3.35
 
 - Dodano mini odtwarzacz audio/wideo bezpośrednio w Historii, bez przechodzenia do osobnego podglądu.

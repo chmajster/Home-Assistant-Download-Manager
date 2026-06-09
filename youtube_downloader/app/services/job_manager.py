@@ -236,6 +236,55 @@ class JobManager:
         LOGGER.info("Ponowiono %s błędnych zadań, pominięto: %s", retried, skipped)
         return retried, skipped
 
+    def retry_job(self, job_id: str) -> Job:
+        """Retry one failed job."""
+
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job:
+                raise KeyError(job_id)
+            if job.status != "error":
+                raise MediaServiceError(
+                    "Tylko zadanie ze statusem błędu można ponowić."
+                )
+            if job.is_live:
+                duplicate = any(
+                    other.job_id != job.job_id
+                    and other.url == job.url
+                    and other.is_live
+                    and other.status in self.ACTIVE_STATUSES
+                    for other in self._jobs.values()
+                )
+                if duplicate:
+                    raise MediaServiceError(
+                        "Nagrywanie tej transmisji jest już uruchomione."
+                    )
+                self._reset_for_retry(job)
+                stop_event = threading.Event()
+                self._stop_events[job.job_id] = stop_event
+                self._persist_jobs()
+                snapshot = Job(**asdict(job))
+            else:
+                self.media_service.format_selection(job.download_type, job.format_id)
+                self._reset_for_retry(job)
+                stop_event = threading.Event()
+                self._stop_events[job.job_id] = stop_event
+                self._persist_jobs()
+                snapshot = Job(**asdict(job))
+
+        if snapshot.is_live:
+            thread = threading.Thread(
+                target=self._run_live,
+                args=(snapshot.job_id,),
+                daemon=True,
+                name=f"live-retry-{snapshot.job_id[:8]}",
+            )
+            thread.start()
+        else:
+            self._executor.submit(self._run_download, snapshot.job_id, stop_event)
+        LOGGER.info("Ponowiono błędne zadanie %s", job_id)
+        return snapshot
+
     def start_live(self, url: str, title: str) -> Job:
         """Queue a uniquely identified live stream recording process."""
 

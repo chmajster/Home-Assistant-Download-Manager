@@ -293,6 +293,7 @@
   const removableJobStatuses = new Set(["completed", "error", "stopped", "interrupted"]);
   const isRemovableJob = (job) => removableJobStatuses.has(job.status);
   const selectedJobIds = new Set();
+  let jobsFilter = document.getElementById("jobs-filter-state")?.dataset.initialFilter === "errors" ? "errors" : "all";
 
   const statusBadge = (job) => {
     const colors = {
@@ -339,6 +340,34 @@
     const total = fileSize(job.total_bytes);
     if (downloaded && total && job.downloaded_bytes !== job.total_bytes) return `${downloaded} / ${total}`;
     return downloaded || total || "-";
+  };
+
+  const jobErrorHint = (job) => {
+    const message = String(job.error_message || "").toLowerCase();
+    if (message.includes("space") || message.includes("miejsca") || message.includes("disk")) {
+      return "Wygląda na problem z miejscem na dysku. Zwolnij miejsce albo zmień katalog pobierania i ponów zadanie.";
+    }
+    if (message.includes("timed out") || message.includes("timeout") || message.includes("network") || message.includes("webpage")) {
+      return "Wygląda na problem z połączeniem lub dostępnością strony. Sprawdź sieć, URL i ponów zadanie za chwilę.";
+    }
+    if (message.includes("ffmpeg") || message.includes("postprocessing") || message.includes("conversion")) {
+      return "Pobranie doszło do etapu obróbki pliku. Sprawdź ffmpeg oraz wolne miejsce, potem ponów zadanie.";
+    }
+    if (message.includes("format") || message.includes("requested format")) {
+      return "Wybrany format może nie być już dostępny. Wróć do analizy URL i wybierz inną jakość albo ponów pobieranie.";
+    }
+    return "Sprawdź komunikat błędu, URL i ustawienia formatu. Możesz ponowić zadanie pojedynczo albo użyć akcji dla wszystkich błędów.";
+  };
+
+  const jobErrorBlock = (job) => {
+    if (job.status !== "error" && !job.error_message) return document.createDocumentFragment();
+    const wrapper = document.createElement("div");
+    wrapper.className = "job-error-box mt-2";
+    wrapper.append(
+      text("strong", job.error_message || "Zadanie zakończyło się błędem.", "text-danger"),
+      text("small", jobErrorHint(job), "text-body-secondary")
+    );
+    return wrapper;
   };
 
   const outputLink = (job) => {
@@ -402,26 +431,59 @@
     if (button) button.disabled = selectedJobIds.size === 0;
   };
 
+  const filteredJobs = (jobs) => jobsFilter === "errors" ? jobs.filter((job) => job.status === "error") : jobs;
+
+  const setJobsFilter = (filter, updateUrl = true) => {
+    jobsFilter = filter === "errors" ? "errors" : "all";
+    document.querySelectorAll("[data-jobs-filter]").forEach((button) => {
+      const active = button.dataset.jobsFilter === jobsFilter;
+      const errorButton = button.dataset.jobsFilter === "errors";
+      button.classList.toggle("btn-danger", active && errorButton);
+      button.classList.toggle("btn-outline-danger", errorButton && !(active && errorButton));
+      button.classList.toggle("btn-soft", !errorButton);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    if (updateUrl && document.getElementById("jobs-table-body")) {
+      const url = new URL(window.location.href);
+      if (jobsFilter === "errors") url.searchParams.set("filter", "errors");
+      else url.searchParams.delete("filter");
+      window.history.replaceState({}, "", url);
+    }
+  };
+
   const updateJobsToolbar = (jobs) => {
     const jobsById = new Map(jobs.map((job) => [job.job_id, job]));
     selectedJobIds.forEach((jobId) => {
       const job = jobsById.get(jobId);
       if (!job || !isRemovableJob(job)) selectedJobIds.delete(jobId);
     });
-    const removableJobs = jobs.filter(isRemovableJob);
+    const visibleRemovableJobs = filteredJobs(jobs).filter(isRemovableJob);
     const failedJobs = jobs.filter((job) => job.status === "error");
     document.getElementById("jobs-toolbar")?.classList.toggle("d-none", jobs.length === 0);
+    const totalCount = document.getElementById("jobs-total-count");
+    if (totalCount) totalCount.textContent = String(jobs.length);
+    const errorFilterCount = document.getElementById("jobs-error-filter-count");
+    if (errorFilterCount) errorFilterCount.textContent = String(failedJobs.length);
     const failedCount = document.getElementById("jobs-failed-count");
     if (failedCount) failedCount.textContent = String(failedJobs.length);
     const retryFailed = document.getElementById("jobs-retry-failed");
     if (retryFailed) retryFailed.disabled = failedJobs.length === 0;
+    const errorPanel = document.getElementById("jobs-error-panel");
+    errorPanel?.classList.toggle("d-none", failedJobs.length === 0);
+    const errorSummary = document.getElementById("jobs-error-summary");
+    if (errorSummary) {
+      errorSummary.textContent = failedJobs.length
+        ? `Nieudane zadania: ${failedJobs.length}. Sprawdź krótki opis przy wpisie, popraw URL lub format i ponów zadanie.`
+        : "Nieudane zadania zwykle oznaczają problem z URL, siecią, miejscem na dysku albo wybranym formatem.";
+    }
     const selectAll = document.getElementById("jobs-select-all");
     if (selectAll) {
-      const selectedCount = removableJobs.filter((job) => selectedJobIds.has(job.job_id)).length;
-      selectAll.disabled = removableJobs.length === 0;
-      selectAll.checked = removableJobs.length > 0 && selectedCount === removableJobs.length;
-      selectAll.indeterminate = selectedCount > 0 && selectedCount < removableJobs.length;
+      const selectedCount = visibleRemovableJobs.filter((job) => selectedJobIds.has(job.job_id)).length;
+      selectAll.disabled = visibleRemovableJobs.length === 0;
+      selectAll.checked = visibleRemovableJobs.length > 0 && selectedCount === visibleRemovableJobs.length;
+      selectAll.indeterminate = selectedCount > 0 && selectedCount < visibleRemovableJobs.length;
     }
+    setJobsFilter(jobsFilter, false);
     syncJobSelectionControls();
   };
 
@@ -463,6 +525,13 @@
         "btn btn-sm btn-outline-primary"
       ));
     }
+    if (job.status === "error") {
+      actions.append(actionForm(
+        route(`/jobs/retry/${encodeURIComponent(job.job_id)}`),
+        "Ponów",
+        "btn btn-sm btn-outline-primary"
+      ));
+    }
     if (isRemovableJob(job)) {
       actions.append(actionForm(
         route(`/jobs/delete/${encodeURIComponent(job.job_id)}`),
@@ -487,7 +556,7 @@
       const titleCell = document.createElement("td");
       titleCell.append(
         text("strong", job.title),
-        text("small", job.error_message || "", "job-error d-block text-danger"),
+        jobErrorBlock(job),
         text("small", job.warning_message || "", "job-error d-block text-warning")
       );
       const typeCell = text("td", downloadTypeLabel(job.download_type));
@@ -519,7 +588,6 @@
       const status = statusBadge(job);
       const progress = progressBar(job);
       progress.classList.add("my-2");
-      const error = text("small", job.error_message || "", "d-block text-danger mb-2");
       const warning = text("small", job.warning_message || "", "d-block text-warning mb-2");
       const actions = document.createElement("div");
       actions.className = "d-flex flex-wrap gap-2 align-items-center";
@@ -527,7 +595,7 @@
       selection.className = "form-check d-flex gap-2 align-items-center mb-0";
       selection.append(jobSelection(job), text("span", "Zaznacz", "form-check-label"));
       actions.append(selection, outputLink(job), jobActions(job));
-      card.append(jobThumbnail(job, true), heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), error, warning, actions);
+      card.append(jobThumbnail(job, true), heading, meta, status, progress, text("small", `${job.progress || 0}%`, "text-body-secondary"), jobErrorBlock(job), warning, actions);
       list.append(card);
     });
   };
@@ -540,18 +608,40 @@
   const updateJobsView = (jobs) => {
     updateActiveJobsBadge(jobs);
     if (!document.getElementById("jobs-table-body")) return;
+    const visibleJobs = filteredJobs(jobs);
     document.getElementById("jobs-empty")?.classList.toggle("d-none", jobs.length > 0);
+    document.getElementById("jobs-filter-empty")?.classList.toggle("d-none", jobs.length === 0 || visibleJobs.length > 0);
     updateJobsToolbar(jobs);
-    renderTable(jobs);
-    renderCards(jobs);
+    renderTable(visibleJobs);
+    renderCards(visibleJobs);
   };
 
   document.getElementById("jobs-select-all")?.addEventListener("change", (event) => {
-    (lastSuccessfulJobs || []).filter(isRemovableJob).forEach((job) => {
+    filteredJobs(lastSuccessfulJobs || []).filter(isRemovableJob).forEach((job) => {
       if (event.target.checked) selectedJobIds.add(job.job_id);
       else selectedJobIds.delete(job.job_id);
     });
     updateJobsToolbar(lastSuccessfulJobs || []);
+  });
+
+  document.querySelectorAll("[data-jobs-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setJobsFilter(button.dataset.jobsFilter);
+      updateJobsView(lastSuccessfulJobs || []);
+    });
+  });
+
+  document.getElementById("jobs-show-errors")?.addEventListener("click", () => {
+    setJobsFilter("errors");
+    updateJobsView(lastSuccessfulJobs || []);
+  });
+
+  document.getElementById("jobs-select-errors")?.addEventListener("click", () => {
+    (lastSuccessfulJobs || [])
+      .filter((job) => job.status === "error")
+      .forEach((job) => selectedJobIds.add(job.job_id));
+    setJobsFilter("errors");
+    updateJobsView(lastSuccessfulJobs || []);
   });
 
   document.getElementById("jobs-delete-selected-form")?.addEventListener("submit", (event) => {

@@ -101,8 +101,11 @@ class ApplicationTestCase(unittest.TestCase):
             self.assertIn('"visibilitychange"', body)
             self.assertIn("selectedJobIds", body)
             self.assertIn("/jobs/delete/", body)
+            self.assertIn("/jobs/retry/", body)
             self.assertIn("jobs-retry-failed-form", body)
             self.assertIn("jobs-failed-count", body)
+            self.assertIn("data-jobs-filter", body)
+            self.assertIn("jobErrorHint", body)
         finally:
             response.close()
 
@@ -113,6 +116,16 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn('id="jobs-select-all"', body)
         self.assertIn('id="jobs-retry-failed-form"', body)
         self.assertIn('id="jobs-failed-count"', body)
+        self.assertIn('id="jobs-filter-errors"', body)
+        self.assertIn('id="jobs-error-panel"', body)
+        self.assertIn('id="jobs-select-errors"', body)
+        self.assertIn('id="jobs-filter-empty"', body)
+
+    def test_jobs_page_can_open_error_filter(self) -> None:
+        body = self.client.get("/jobs", query_string={"filter": "errors"}).get_data(
+            as_text=True
+        )
+        self.assertIn('id="jobs-filter-state" data-initial-filter="errors"', body)
 
     def test_inactive_job_can_be_deleted_from_jobs_page(self) -> None:
         manager = self.app.extensions["job_manager"]
@@ -185,6 +198,32 @@ class ApplicationTestCase(unittest.TestCase):
         body = response.get_data(as_text=True)
         self.assertIn("Ponowiono nieudane zadania: 2.", body)
         self.assertIn("Pomini", body)
+
+    def test_one_failed_job_can_be_retried_from_jobs_page(self) -> None:
+        class FakeUpdater:
+            calls = 0
+
+            def ensure_recent(self) -> bool:
+                self.calls += 1
+                return True
+
+        updater = FakeUpdater()
+        self.app.extensions["ytdlp_updater"] = updater
+        manager = self.app.extensions["job_manager"]
+        job = manager._new_job(
+            "https://youtu.be/abc", "Example", "best", is_live=False
+        )
+        with patch.object(manager, "retry_job", return_value=job) as retry:
+            response = self.client.post(
+                f"/jobs/retry/{job.job_id}",
+                data={"_csrf_token": self._csrf_token()},
+                follow_redirects=False,
+            )
+
+        retry.assert_called_once_with(job.job_id)
+        self.assertEqual(updater.calls, 1)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("filter=errors", response.headers["Location"])
 
     def test_managed_file_can_be_downloaded(self) -> None:
         downloads = self.app.extensions["file_service"].download_dir
@@ -1577,6 +1616,24 @@ class JobManagerTestCase(unittest.TestCase):
             self.manager._persist_jobs()
 
         self.assertEqual(self.manager.retry_failed_jobs(), (1, 0))
+        completed = self._wait_for_status(job.job_id, "completed")
+        self.assertEqual(completed.error_message, None)
+        self.assertEqual(completed.output_file, "example.mp4")
+
+    def test_one_failed_download_can_be_retried(self) -> None:
+        job = self.manager._new_job(
+            "https://youtu.be/retry", "Retry me", "best", is_live=False
+        )
+        with self.manager._lock:
+            active = self.manager._jobs[job.job_id]
+            active.status = "error"
+            active.error_message = "network"
+            active.finished_at = now_iso()
+            self.manager._persist_jobs()
+
+        retried = self.manager.retry_job(job.job_id)
+
+        self.assertEqual(retried.status, "pending")
         completed = self._wait_for_status(job.job_id, "completed")
         self.assertEqual(completed.error_message, None)
         self.assertEqual(completed.output_file, "example.mp4")

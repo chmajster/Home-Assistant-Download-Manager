@@ -568,6 +568,26 @@ def retry_failed_jobs():
     return redirect(ingress_url("web.jobs"))
 
 
+@web_bp.post("/jobs/retry/<job_id>")
+def retry_job(job_id: str):
+    """Retry one failed job from the queue."""
+
+    if not _valid_form():
+        return redirect(ingress_url("web.jobs", filter="errors"))
+    if _limited("jobs-retry-one", 20):
+        flash("Zbyt wiele prób ponawiania zadań. Odczekaj chwilę.", "warning")
+        return redirect(ingress_url("web.jobs", filter="errors"))
+    try:
+        _ensure_ytdlp_recent()
+        job = _job_manager().retry_job(job_id)
+        flash(f"Ponowiono zadanie {job.job_id[:8]}.", "success")
+    except KeyError:
+        flash("Nie znaleziono zadania.", "warning")
+    except MediaServiceError as error:
+        flash(str(error), "danger")
+    return redirect(ingress_url("web.jobs", filter="errors"))
+
+
 def _flash_deleted_jobs(removed: int, skipped: int) -> None:
     if removed:
         flash(f"Usunięto zadania: {removed}.", "success")
@@ -582,8 +602,11 @@ def jobs():
     """Render active and completed jobs."""
 
     manager = _job_manager()
+    job_filter = "errors" if request.args.get("filter") == "errors" else "all"
     return render_template(
-        "jobs.html", jobs=[manager.job_dict(job) for job in manager.list_jobs()]
+        "jobs.html",
+        jobs=[manager.job_dict(job) for job in manager.list_jobs()],
+        job_filter=job_filter,
     )
 
 

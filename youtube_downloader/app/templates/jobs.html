@@ -11,7 +11,16 @@
   </div>
   <section class="card app-card">
     <div class="card-body">
+      <div id="jobs-filter-state" data-initial-filter="{{ job_filter }}"></div>
       <div id="jobs-toolbar" class="d-flex flex-wrap gap-2 align-items-center mb-3{% if not jobs %} d-none{% endif %}">
+        <div class="btn-group btn-group-sm jobs-filter-group" role="group" aria-label="Filtr zadań">
+          <button id="jobs-filter-all" class="btn btn-soft" type="button" data-jobs-filter="all" aria-pressed="false">
+            Wszystkie (<span id="jobs-total-count">0</span>)
+          </button>
+          <button id="jobs-filter-errors" class="btn btn-outline-danger" type="button" data-jobs-filter="errors" aria-pressed="false">
+            Błędy (<span id="jobs-error-filter-count">0</span>)
+          </button>
+        </div>
         <form id="jobs-delete-selected-form" method="post" action="{{ ingress_url('web.delete_jobs') }}">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <span id="jobs-selected-inputs"></span>
@@ -31,10 +40,25 @@
         </form>
         <small class="text-body-secondary">Aktywne zadania pozostają na liście.</small>
       </div>
+      <div id="jobs-error-panel" class="jobs-error-panel d-none mb-3">
+        <div>
+          <strong>Błędy pobierania</strong>
+          <small id="jobs-error-summary" class="d-block text-body-secondary">Nieudane zadania zwykle oznaczają problem z URL, siecią, miejscem na dysku albo wybranym formatem.</small>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <button id="jobs-show-errors" class="btn btn-sm btn-outline-danger" type="button">Pokaż błędy</button>
+          <button id="jobs-select-errors" class="btn btn-sm btn-soft" type="button">Zaznacz błędy</button>
+        </div>
+      </div>
       <div id="jobs-empty" class="empty-state{% if jobs %} d-none{% endif %}">
         <span class="empty-state-mark" aria-hidden="true">+</span>
         <strong>Brak zadań w tej sesji</strong>
         <small>Uruchom pobieranie lub zapis live, aby zobaczyć postęp.</small>
+      </div>
+      <div id="jobs-filter-empty" class="empty-state d-none">
+        <span class="empty-state-mark" aria-hidden="true">!</span>
+        <strong>Brak błędów</strong>
+        <small>Filtr błędów pokaże tutaj nieudane pobrania, gdy takie się pojawią.</small>
       </div>
       <div class="desktop-only table-responsive">
         <table class="table align-middle mb-0">
