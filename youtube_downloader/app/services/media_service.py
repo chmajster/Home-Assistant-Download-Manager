@@ -335,7 +335,6 @@ class MediaService:
         if info.get("is_live") or info.get("live_status") in {
             "is_live",
             "is_upcoming",
-            "was_live",
             "post_live",
         }:
             return "live"

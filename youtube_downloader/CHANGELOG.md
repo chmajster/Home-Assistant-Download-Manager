@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.45
+
+- Zakończone transmisje ze statusem `was_live` są traktowane jak zapisane filmy i można je pobrać zwykłym formularzem.
+- W wyniku analizy dodano informację, że `was_live` to zapis zakończonego live, a nie aktywna transmisja do oczekiwania.
+
 ## 1.3.44
 
 - Dodano `Import listy URL` na stronie głównej: wklejenie wielu linków tworzy osobne zadania pobierania.

@@ -53,6 +53,8 @@ Zaplanowana transmisja może zostać przeanalizowana, a przycisk **Oczekuj na li
 
 Formularze live mają domyślnie zaznaczoną opcję **Pobieraj od początku**, która przekazuje do `yt-dlp` argument `--live-from-start`. Opcję można odznaczyć, jeśli zapis ma ruszyć od bieżącego momentu.
 
+Jeżeli `yt-dlp` zwróci status `was_live`, materiał jest traktowany jako zapis zakończonej transmisji i można pobrać go zwykłym formularzem filmu zamiast uruchamiać oczekiwanie na live.
+
 Bieżący `yt-dlp` nie ma osobnego extractora Instagram live. Dodatek obsługuje publiczne posty, reels, stories, tagi i profile Instagram zwracane przez extractor, ale nie deklaruje zapisu Instagram live.
 
 ## Lokalizacja plików

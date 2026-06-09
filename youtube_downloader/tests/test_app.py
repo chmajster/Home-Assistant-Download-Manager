@@ -1405,6 +1405,48 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("Pobieraj od początku", body)
 
 
+    def test_result_allows_downloading_archived_live(self) -> None:
+        media = {
+            "is_live": False,
+            "content_type": "video",
+            "thumbnail": None,
+            "title": "Archived live",
+            "channel": "Channel",
+            "channel_id": "channel-id",
+            "platform": "youtube",
+            "duration": 3600,
+            "live_status": "was_live",
+            "playlist_count": None,
+            "formats": [],
+            "entries": [],
+            "url": "https://youtu.be/archive",
+            "duplicate_warnings": [],
+        }
+
+        def fake_ingress_url(endpoint: str, **_: object) -> str:
+            if endpoint == "web.start_download":
+                return "/download"
+            if endpoint == "web.watch_live":
+                return "/live/watch"
+            return "/"
+
+        with self.app.test_request_context("/"):
+            body = self.app.jinja_env.get_template("result.html").render(
+                media=media,
+                app_settings=self.app.config["APP_SETTINGS"],
+                ingress_url=fake_ingress_url,
+                csrf_token=lambda: "token",
+                ingress_path="",
+                allowed_hosts=[],
+                active_job_statuses=[],
+            )
+        self.assertIn("transmisji live", body)
+        self.assertIn('action="/download"', body)
+        self.assertIn("Rozpocznij pobieranie", body)
+        self.assertNotIn("/live/watch", body)
+        self.assertNotIn("Oczekuj na live", body)
+
+
 class MediaUrlTestCase(unittest.TestCase):
     """Keep extractor input limited to known public YouTube hosts."""
 
@@ -1458,6 +1500,15 @@ class MediaUrlTestCase(unittest.TestCase):
         clip_url = MediaService.validate_url("https://clips.twitch.tv/ExampleClip")
         self.assertEqual(clip_url, "https://clips.twitch.tv/ExampleClip")
         self.assertEqual(MediaService.detect_platform(clip_url), "twitch")
+
+    def test_archived_live_is_detected_as_downloadable_video(self) -> None:
+        self.assertEqual(
+            MediaService.detect_content_type(
+                {"id": "archive", "live_status": "was_live"},
+                "https://youtu.be/archive",
+            ),
+            "video",
+        )
 
     def test_live_command_can_start_from_beginning(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

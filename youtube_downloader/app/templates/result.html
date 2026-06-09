@@ -10,6 +10,8 @@
   </div>
   {% if media.is_live %}
     <div class="alert alert-danger">To jest transmisja na żywo</div>
+  {% elif media.live_status == "was_live" %}
+    <div class="alert alert-info">To zapis zakończonej transmisji live. Możesz pobrać go jak zwykły film.</div>
   {% elif media.content_type == "live" %}
     <div class="alert alert-info">Transmisja live nie jest obecnie aktywna. Status: {{ media.live_status or "brak danych" }}.</div>
   {% endif %}
