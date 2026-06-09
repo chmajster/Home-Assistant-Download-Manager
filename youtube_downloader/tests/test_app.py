@@ -568,6 +568,75 @@ class ApplicationTestCase(unittest.TestCase):
             duration=125,
         )
 
+    def test_history_tags_can_be_saved_and_searched(self) -> None:
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Example",
+            "https://youtu.be/example",
+            "best",
+            target.name,
+            "completed",
+        )
+        record = files.history()[0]
+
+        response = self.client.post(
+            "/history/tags",
+            data={
+                "_csrf_token": self._csrf_token(),
+                "filename": record["filename"],
+                "downloaded_at": record["downloaded_at"],
+                "tags": "muzyka, tutoriale; live\nmuzyka",
+                "return_q": "Example",
+                "return_sort": "title",
+                "return_order": "asc",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("q=Example", response.headers["Location"])
+        self.assertEqual(files.history()[0]["tags"], ["muzyka", "tutoriale", "live"])
+
+        body = self.client.get("/history", query_string={"q": "tutoriale"}).get_data(
+            as_text=True
+        )
+        self.assertIn("Example", body)
+        self.assertIn('value="muzyka, tutoriale, live"', body)
+        self.assertIn(">tutoriale</span>", body)
+
+        empty = self.client.get("/history", query_string={"q": "archiwum"}).get_data(
+            as_text=True
+        )
+        self.assertIn("Brak wyników", empty)
+
+    def test_history_page_exposes_tag_editors(self) -> None:
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Example",
+            "https://youtu.be/example",
+            "best",
+            target.name,
+            "completed",
+        )
+        record = files.history()[0]
+        files.update_history_tags(
+            record["filename"],
+            record["downloaded_at"],
+            "archiwum, live",
+        )
+
+        body = self.client.get("/history").get_data(as_text=True)
+        self.assertIn('action="/history/tags"', body)
+        self.assertIn('name="tags"', body)
+        self.assertIn('placeholder="muzyka, tutoriale, live"', body)
+        self.assertIn('value="archiwum, live"', body)
+        self.assertIn(">archiwum</span>", body)
+        self.assertIn(">live</span>", body)
+
     def test_history_title_and_thumbnail_open_preview(self) -> None:
         files = self.app.extensions["file_service"]
         target = files.download_dir / "example.mp4"

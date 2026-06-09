@@ -18,7 +18,11 @@ from flask import (
 )
 
 from .. import ingress_url, valid_csrf_token
-from ..services.file_service import FileService, UnsafeFilenameError
+from ..services.file_service import (
+    FileService,
+    UnsafeFilenameError,
+    normalize_history_tags,
+)
 from ..services.job_manager import JobManager
 from ..services.media_service import MediaService, MediaServiceError
 from ..services.ytdlp_updater import YtDlpUpdater
@@ -114,6 +118,8 @@ def _history_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for record in records:
         item = dict(record)
         item["platform"] = _history_platform(str(item.get("url") or ""))
+        item["tags"] = normalize_history_tags(item.get("tags"))
+        item["tags_label"] = ", ".join(item["tags"])
         item["size_label"] = _filesize_label(item.get("size"))
         item["duration_label"] = _duration_label(item.get("duration"))
         item["downloaded_at_label"] = str(item.get("downloaded_at") or "").replace(
@@ -209,6 +215,8 @@ def _history_search_text(item: dict[str, Any]) -> str:
         item.get("duration_label"),
         item.get("type"),
         item.get("status"),
+        item.get("tags"),
+        item.get("tags_label"),
     ]
     return " ".join(str(value) for value in values if value is not None).casefold()
 
@@ -606,6 +614,24 @@ def delete_history_record():
     else:
         flash("Nie znaleziono wpisu w historii.", "warning")
     return redirect(ingress_url("web.index"))
+
+
+@web_bp.post("/history/tags")
+def update_history_tags():
+    """Update manual tags for one history record."""
+
+    if not _valid_form():
+        return _history_redirect()
+    updated = _file_service().update_history_tags(
+        request.form.get("filename", ""),
+        request.form.get("downloaded_at", ""),
+        request.form.get("tags", ""),
+    )
+    if updated:
+        flash("Tagi wpisu zostały zapisane.", "success")
+    else:
+        flash("Nie znaleziono wpisu do otagowania.", "warning")
+    return _history_redirect()
 
 
 @web_bp.post("/history/bulk")

@@ -16,7 +16,7 @@
       <form action="{{ ingress_url('web.history') }}" method="get" class="row g-2 align-items-end">
         <div class="col-lg-5">
           <label class="form-label" for="history-search">Wyszukiwarka historii</label>
-          <input class="form-control" id="history-search" name="q" value="{{ query }}" placeholder="Tytuł, nazwa pliku, serwis, URL, data, rozmiar albo długość">
+          <input class="form-control" id="history-search" name="q" value="{{ query }}" placeholder="Tytuł, nazwa pliku, tag, serwis, URL, data, rozmiar albo długość">
         </div>
         <div class="col-sm-6 col-lg-3">
           <label class="form-label" for="history-sort">Sortowanie</label>
@@ -71,6 +71,7 @@
                 <th class="select-column"></th>
                 <th>Miniatura</th>
                 <th>Tytuł</th>
+                <th>Tagi</th>
                 <th>Serwis</th>
                 <th>Data</th>
                 <th>Rozmiar</th>
@@ -82,6 +83,7 @@
             <tbody>
               {% for item in history %}
                 {% set preview_url = ingress_url('web.preview', filename=item.filename) if item.file_exists else none %}
+                {% set tag_form_id = 'history-tags-desktop-' ~ loop.index0 %}
                 <tr>
                   <td>
                     <input class="form-check-input history-bulk-select" type="checkbox" name="history_keys" value="{{ item.downloaded_at }}" aria-label="Zaznacz {{ item.title }}">
@@ -107,6 +109,19 @@
                     {% endif %}
                     <small class="d-block text-body-secondary">{{ download_type_labels.get(item.type, item.type) }} | {{ status_labels.get(item.status, item.status) }}</small>
                     {% if item.url %}<a class="small text-break" href="{{ item.url }}" target="_blank" rel="noreferrer">{{ item.url }}</a>{% endif %}
+                  </td>
+                  <td>
+                    {% if item.tags %}
+                      <div class="d-flex flex-wrap gap-1 mb-2">
+                        {% for tag in item.tags %}
+                          <span class="badge text-bg-light">{{ tag }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                    <div class="input-group input-group-sm history-tags-editor">
+                      <input class="form-control" name="tags" value="{{ item.tags_label }}" placeholder="muzyka, tutoriale, live" form="{{ tag_form_id }}">
+                      <button class="btn btn-soft" type="submit" form="{{ tag_form_id }}">Zapisz</button>
+                    </div>
                   </td>
                   <td>{{ item.platform }}</td>
                   <td>{{ item.downloaded_at_label }}</td>
@@ -135,6 +150,7 @@
         <div class="mobile-only">
           {% for item in history %}
             {% set preview_url = ingress_url('web.preview', filename=item.filename) if item.file_exists else none %}
+            {% set tag_form_id = 'history-tags-mobile-' ~ loop.index0 %}
             <article class="mobile-list-card p-3 mb-2">
               <label class="form-check d-flex gap-2 align-items-center mb-3">
                 <input class="form-check-input history-bulk-select" type="checkbox" name="history_keys" value="{{ item.downloaded_at }}">
@@ -156,6 +172,17 @@
               {% endif %}
               <small class="d-block text-body-secondary">{{ item.platform }} | {{ item.downloaded_at_label }} | {{ item.size_label }} | {{ item.duration_label }}</small>
               {% if item.url %}<a class="small text-break" href="{{ item.url }}" target="_blank" rel="noreferrer">{{ item.url }}</a>{% endif %}
+              {% if item.tags %}
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                  {% for tag in item.tags %}
+                    <span class="badge text-bg-light">{{ tag }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+              <div class="input-group input-group-sm history-tags-editor mt-2">
+                <input class="form-control" name="tags" value="{{ item.tags_label }}" placeholder="muzyka, tutoriale, live" form="{{ tag_form_id }}">
+                <button class="btn btn-soft" type="submit" form="{{ tag_form_id }}">Zapisz</button>
+              </div>
               <div class="d-flex flex-wrap gap-2 mt-2">
                 {% if item.file_exists %}
                   <a class="btn btn-sm btn-outline-primary" href="{{ ingress_url('web.downloaded', filename=item.filename) }}">Pobierz plik</a>
@@ -166,6 +193,24 @@
         </div>
       </div>
     </form>
+    {% for item in history %}
+      <form id="history-tags-desktop-{{ loop.index0 }}" action="{{ ingress_url('web.update_history_tags') }}" method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="filename" value="{{ item.filename }}">
+        <input type="hidden" name="downloaded_at" value="{{ item.downloaded_at }}">
+        <input type="hidden" name="return_q" value="{{ query }}">
+        <input type="hidden" name="return_sort" value="{{ sort }}">
+        <input type="hidden" name="return_order" value="{{ order }}">
+      </form>
+      <form id="history-tags-mobile-{{ loop.index0 }}" action="{{ ingress_url('web.update_history_tags') }}" method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="filename" value="{{ item.filename }}">
+        <input type="hidden" name="downloaded_at" value="{{ item.downloaded_at }}">
+        <input type="hidden" name="return_q" value="{{ query }}">
+        <input type="hidden" name="return_sort" value="{{ sort }}">
+        <input type="hidden" name="return_order" value="{{ order }}">
+      </form>
+    {% endfor %}
   {% else %}
     <div class="empty-state app-card">
       <strong>Brak wyników</strong>

@@ -326,6 +326,10 @@ a:hover {
   text-decoration: underline;
 }
 
+.history-tags-editor {
+  min-width: 14rem;
+}
+
 .history-thumbnail-mobile {
   display: block;
   width: 100%;

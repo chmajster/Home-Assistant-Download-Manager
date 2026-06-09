@@ -30,10 +30,37 @@ VIDEO_EXTENSIONS = {
     ".ts",
     ".webm",
 }
+MAX_HISTORY_TAGS = 20
+MAX_HISTORY_TAG_LENGTH = 40
 
 
 class UnsafeFilenameError(ValueError):
     """Raised when a client-provided filename escapes the download folder."""
+
+
+def normalize_history_tags(tags: object) -> list[str]:
+    """Return a compact, duplicate-free list of manually assigned tags."""
+
+    if tags is None:
+        raw_tags: list[str] = []
+    elif isinstance(tags, list):
+        raw_tags = [str(tag) for tag in tags]
+    else:
+        normalized = str(tags).replace(";", ",").replace("\n", ",")
+        raw_tags = normalized.split(",")
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw_tag in raw_tags:
+        tag = " ".join(raw_tag.strip().split())[:MAX_HISTORY_TAG_LENGTH]
+        key = tag.casefold()
+        if not tag or key in seen:
+            continue
+        cleaned.append(tag)
+        seen.add(key)
+        if len(cleaned) >= MAX_HISTORY_TAGS:
+            break
+    return cleaned
 
 
 @dataclass(frozen=True)
@@ -212,6 +239,7 @@ class FileService:
         with self._history_lock:
             records = self._read_history()
         for record in records:
+            record["tags"] = normalize_history_tags(record.get("tags"))
             filename = str(record.get("filename", ""))
             try:
                 path = self.resolve_download(filename)
@@ -257,6 +285,7 @@ class FileService:
             "format_id": format_id,
             "warning_message": warning_message,
             "duration": duration,
+            "tags": [],
         }
         with self._history_lock:
             records = self._read_history()
@@ -286,6 +315,25 @@ class FileService:
                     del records[index]
                     self._write_history(records)
                     LOGGER.info("Usunięto wpis historii dla pliku %s", filename)
+                    return True
+        return False
+
+    def update_history_tags(
+        self, filename: str, downloaded_at: str, tags: object
+    ) -> bool:
+        """Replace tags for one matching history record."""
+
+        normalized = normalize_history_tags(tags)
+        with self._history_lock:
+            records = self._read_history()
+            for record in records:
+                if (
+                    record.get("filename") == filename
+                    and record.get("downloaded_at") == downloaded_at
+                ):
+                    record["tags"] = normalized
+                    self._write_history(records)
+                    LOGGER.info("Zaktualizowano tagi historii dla pliku %s", filename)
                     return True
         return False
 

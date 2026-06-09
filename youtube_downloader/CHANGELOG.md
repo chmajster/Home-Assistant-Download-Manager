@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.30
+
+- Dodano ręczne tagowanie wpisów na stronie `Historia`, np. `muzyka`, `tutoriale`, `live` albo `archiwum`.
+- Wyszukiwarka historii uwzględnia zapisane tagi.
+
 ## 1.3.29
 
 - Dodano masowe akcje na stronie `Historia`: usuwanie wpisów, usuwanie plików oraz ponowne pobieranie zaznaczonych pozycji.
