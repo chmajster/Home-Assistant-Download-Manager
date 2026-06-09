@@ -114,6 +114,7 @@ Jeżeli Home Assistant pokazuje te etykiety po angielsku, sprawdź język ustawi
 | `POST` | `/live/watch` | Oczekiwanie na start transmisji i automatyczny zapis |
 | `POST` | `/live/stop/<job_id>` | Zatrzymanie zapisu live |
 | `GET` | `/jobs` | Lista zadań |
+| `POST` | `/jobs/retry-failed` | Ponowienie wszystkich nieudanych zadań |
 | `GET` | `/api/jobs` | Lista zadań JSON |
 | `GET` | `/api/jobs/<job_id>` | Stan zadania JSON |
 | `GET` | `/downloaded/<filename>` | Pobranie gotowego pliku |

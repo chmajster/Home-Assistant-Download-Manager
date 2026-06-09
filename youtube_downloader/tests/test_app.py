@@ -28,7 +28,7 @@ from app.services.ha_options import (
     load_options,
 )
 from app.services.ha_notifications import HomeAssistantNotifier
-from app.services.job_manager import JobManager
+from app.services.job_manager import JobManager, now_iso
 from app.services.media_service import MediaService, MediaServiceError
 from app.services.ytdlp_updater import YtDlpUpdater
 
@@ -101,6 +101,8 @@ class ApplicationTestCase(unittest.TestCase):
             self.assertIn('"visibilitychange"', body)
             self.assertIn("selectedJobIds", body)
             self.assertIn("/jobs/delete/", body)
+            self.assertIn("jobs-retry-failed-form", body)
+            self.assertIn("jobs-failed-count", body)
         finally:
             response.close()
 
@@ -109,6 +111,8 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn('id="jobs-delete-selected-form"', body)
         self.assertIn('id="jobs-clear-form"', body)
         self.assertIn('id="jobs-select-all"', body)
+        self.assertIn('id="jobs-retry-failed-form"', body)
+        self.assertIn('id="jobs-failed-count"', body)
 
     def test_inactive_job_can_be_deleted_from_jobs_page(self) -> None:
         manager = self.app.extensions["job_manager"]
@@ -157,6 +161,30 @@ class ApplicationTestCase(unittest.TestCase):
         )
         self.assertEqual([job.job_id for job in manager.list_jobs()], [active.job_id])
         self.assertIn("Pominięto aktywne zadania: 1.", response.get_data(as_text=True))
+
+    def test_failed_jobs_can_be_retried_from_jobs_page(self) -> None:
+        class FakeUpdater:
+            calls = 0
+
+            def ensure_recent(self) -> bool:
+                self.calls += 1
+                return True
+
+        updater = FakeUpdater()
+        self.app.extensions["ytdlp_updater"] = updater
+        manager = self.app.extensions["job_manager"]
+        with patch.object(manager, "retry_failed_jobs", return_value=(2, 1)) as retry:
+            response = self.client.post(
+                "/jobs/retry-failed",
+                data={"_csrf_token": self._csrf_token()},
+                follow_redirects=True,
+            )
+
+        retry.assert_called_once_with()
+        self.assertEqual(updater.calls, 1)
+        body = response.get_data(as_text=True)
+        self.assertIn("Ponowiono nieudane zadania: 2.", body)
+        self.assertIn("Pomini", body)
 
     def test_managed_file_can_be_downloaded(self) -> None:
         downloads = self.app.extensions["file_service"].download_dir
@@ -1473,6 +1501,35 @@ class JobManagerTestCase(unittest.TestCase):
         self.assertEqual(len(self.notifier.jobs), 1)
         self.assertEqual(self.notifier.jobs[0].status, "error")
         self.assertEqual(self.notifier.jobs[0].error_message, STORAGE_ERROR_MESSAGE)
+
+    def test_failed_downloads_can_be_retried(self) -> None:
+        job = self.manager._new_job(
+            "https://youtu.be/retry", "Retry me", "best", is_live=False
+        )
+        with self.manager._lock:
+            active = self.manager._jobs[job.job_id]
+            active.status = "error"
+            active.error_message = "network"
+            active.finished_at = now_iso()
+            self.manager._persist_jobs()
+
+        self.assertEqual(self.manager.retry_failed_jobs(), (1, 0))
+        completed = self._wait_for_status(job.job_id, "completed")
+        self.assertEqual(completed.error_message, None)
+        self.assertEqual(completed.output_file, "example.mp4")
+
+    def test_retry_failed_jobs_skips_invalid_formats(self) -> None:
+        job = self.manager._new_job(
+            "https://youtu.be/retry", "Retry me", "format", is_live=False
+        )
+        with self.manager._lock:
+            active = self.manager._jobs[job.job_id]
+            active.status = "error"
+            active.error_message = "missing format id"
+            self.manager._persist_jobs()
+
+        self.assertEqual(self.manager.retry_failed_jobs(), (0, 1))
+        self.assertEqual(self.manager.get_job(job.job_id).status, "error")
 
     def test_thumbnail_warning_is_visible_on_completed_job(self) -> None:
         self.thumbnail_generator.return_value = ThumbnailResult(

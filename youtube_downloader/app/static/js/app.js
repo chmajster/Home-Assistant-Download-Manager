@@ -380,7 +380,12 @@
       if (!job || !isRemovableJob(job)) selectedJobIds.delete(jobId);
     });
     const removableJobs = jobs.filter(isRemovableJob);
+    const failedJobs = jobs.filter((job) => job.status === "error");
     document.getElementById("jobs-toolbar")?.classList.toggle("d-none", jobs.length === 0);
+    const failedCount = document.getElementById("jobs-failed-count");
+    if (failedCount) failedCount.textContent = String(failedJobs.length);
+    const retryFailed = document.getElementById("jobs-retry-failed");
+    if (retryFailed) retryFailed.disabled = failedJobs.length === 0;
     const selectAll = document.getElementById("jobs-select-all");
     if (selectAll) {
       const selectedCount = removableJobs.filter((job) => selectedJobIds.has(job.job_id)).length;
@@ -528,6 +533,13 @@
 
   document.getElementById("jobs-clear-form")?.addEventListener("submit", (event) => {
     if (!window.confirm("Czy na pewno wyczyścić listę zakończonych zadań? Aktywne zadania pozostaną na liście.")) {
+      event.preventDefault();
+    }
+  });
+
+  document.getElementById("jobs-retry-failed-form")?.addEventListener("submit", (event) => {
+    const failedCount = (lastSuccessfulJobs || []).filter((job) => job.status === "error").length;
+    if (!failedCount || !window.confirm(`Ponowić wszystkie nieudane zadania (${failedCount})?`)) {
       event.preventDefault();
     }
   });

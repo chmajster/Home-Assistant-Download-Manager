@@ -29,7 +29,7 @@ Standardowe przełączniki `Start on boot`, `Watchdog`, `Auto update` oraz `Show
 
 Zwykłe pobrania wykonują się w workerach tła. Liczba równoległych zadań jest ograniczona przez `max_concurrent_jobs`. Stan kolejki jest zapisywany w `/data/jobs/queue.json`. Po restarcie dodatku lista zostaje odtworzona, a zadania, które były aktywne, otrzymują status `przerwane`. Dodatek nie uruchamia ich automatycznie ponownie.
 
-Na stronie **Zadania** zwykłe pobieranie można zatrzymać i wznowić. Zatrzymanie zachowuje pliki częściowe `yt-dlp`, a wznowienie uruchamia ten sam URL i wariant formatu z aktywną obsługą kontynuacji pobierania.
+Na stronie **Zadania** zwykłe pobieranie można zatrzymać i wznowić. Zatrzymanie zachowuje pliki częściowe `yt-dlp`, a wznowienie uruchamia ten sam URL i wariant formatu z aktywną obsługą kontynuacji pobierania. Przycisk **Ponów nieudane** uruchamia ponownie wszystkie zadania ze statusem `błąd`.
 
 Po zakończeniu operacji wynik jest zapisywany w historii JSON:
 

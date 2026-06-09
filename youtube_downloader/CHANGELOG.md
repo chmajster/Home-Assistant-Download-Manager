@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.34
+
+- Dodano przycisk `Ponów nieudane` w widoku `Zadania`, który ponawia wszystkie zadania ze statusem błędu.
+
 ## 1.3.33
 
 - Dodano przełącznik widoku Historii: tabela albo galeria miniaturek.
