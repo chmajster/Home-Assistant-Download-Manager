@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.44
+
+- Dodano `Import listy URL` na stronie głównej: wklejenie wielu linków tworzy osobne zadania pobierania.
+- Import usuwa powtórzenia z jednej paczki i pomija niepoprawne lub nieobsługiwane adresy.
+
 ## 1.3.43
 
 - Usunięto kolumnę `Plik` z krótkiej tabeli `Historia pobrań` na stronie głównej.

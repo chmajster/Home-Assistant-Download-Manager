@@ -214,6 +214,26 @@ a:hover {
   font-size: 1rem;
 }
 
+.bulk-url-form {
+  max-width: 54rem;
+}
+
+.bulk-url-grid {
+  align-items: stretch;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bulk-url-grid textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.bulk-url-submit {
+  min-width: 9rem;
+}
+
 .btn-accent {
   background: linear-gradient(135deg, var(--app-primary), var(--app-accent));
   border: 0;

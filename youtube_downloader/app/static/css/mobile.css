@@ -62,6 +62,15 @@
     padding-left: 1rem;
   }
 
+  .bulk-url-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-url-submit {
+    min-height: 3rem;
+    width: 100%;
+  }
+
   .page-heading {
     align-items: start !important;
   }

@@ -8,6 +8,8 @@ Przy właściwym pobieraniu aplikacja nie przyjmuje ścieżki docelowej od użyt
 
 Podstawowy formularz udostępnia prosty wybór jakości filmu: najlepsza dostępna, `1080p`, `720p` albo `360p`. Wybrana rozdzielczość jest limitem maksymalnym, więc przy braku dokładnego wariantu `yt-dlp` pobiera najlepszą dostępną niższą jakość. Nadal można pobrać samo audio MP3 albo wskazać konkretny format z tabeli.
 
+Formularz **Import listy URL** pozwala wkleić do 50 linków naraz. Aplikacja usuwa powtórzenia z tej samej paczki, tworzy osobne zadanie `najlepsza` dla każdego poprawnego URL i pomija nieobsługiwane adresy bez blokowania całego importu.
+
 ## Ingress i panel Home Assistant
 
 W `config.yaml` aktywne są:

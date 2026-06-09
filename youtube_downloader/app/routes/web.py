@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 import mimetypes
+import re
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlsplit
 
 from flask import (
     Blueprint,
@@ -29,6 +31,7 @@ from ..services.ytdlp_updater import YtDlpUpdater
 
 LOGGER = logging.getLogger(__name__)
 web_bp = Blueprint("web", __name__)
+BULK_URL_IMPORT_LIMIT = 50
 HISTORY_VIEW_LABELS = {
     "table": "tabela",
     "gallery": "galeria",
@@ -68,6 +71,35 @@ def _duration_value(value: object) -> int | None:
     except (TypeError, ValueError):
         return None
     return seconds if seconds >= 0 else None
+
+
+def _bulk_url_candidates(value: object) -> list[str]:
+    """Return unique URL-like tokens from a pasted list."""
+
+    raw = str(value or "")
+    candidates = [item.strip() for item in re.split(r"[\s,;]+", raw) if item.strip()]
+    unique: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        unique.append(candidate)
+        if len(unique) >= BULK_URL_IMPORT_LIMIT:
+            break
+    return unique
+
+
+def _bulk_download_title(url: str) -> str:
+    parts = urlsplit(url)
+    host = parts.hostname or "URL"
+    path = parts.path.rstrip("/")
+    tail = path.rsplit("/", 1)[-1] if path else ""
+    if tail and parts.query:
+        return f"{host}/{tail}?{parts.query}"[:120]
+    if tail:
+        return f"{host}/{tail}"[:120]
+    return host[:120]
 
 
 def _live_from_start_value() -> bool:
@@ -482,6 +514,50 @@ def start_download():
         flash(f"Uruchomiono zadanie {job.job_id[:8]}.", "success")
     except MediaServiceError as error:
         flash(str(error), "danger")
+    return redirect(ingress_url("web.jobs"))
+
+
+@web_bp.post("/download/import")
+def import_downloads():
+    """Queue multiple regular downloads from pasted URLs."""
+
+    if not _valid_form():
+        return redirect(ingress_url("web.index"))
+    if _limited("download-import", 3):
+        flash("Zbyt wiele prĂłb importu listy URL. Odczekaj chwilÄ™.", "warning")
+        return redirect(ingress_url("web.index"))
+
+    urls = _bulk_url_candidates(request.form.get("urls", ""))
+    if not urls:
+        flash("Wklej co najmniej jeden adres URL do importu.", "warning")
+        return redirect(ingress_url("web.index"))
+
+    created = 0
+    skipped = 0
+    try:
+        _ensure_ytdlp_recent()
+        for url in urls:
+            try:
+                validated_url = MediaService.validate_url(url)
+                _job_manager().start_download(
+                    url=validated_url,
+                    title=_bulk_download_title(validated_url),
+                    download_type="best",
+                )
+                created += 1
+            except MediaServiceError:
+                skipped += 1
+    except MediaServiceError as error:
+        flash(str(error), "danger")
+        return redirect(ingress_url("web.index"))
+
+    if created:
+        flash(f"Zaimportowano zadania z listy URL: {created}.", "success")
+    if skipped:
+        flash(f"PominiÄ™to niepoprawne linki: {skipped}.", "warning")
+    if not created and not skipped:
+        flash("Nie znaleziono linkĂłw do importu.", "warning")
+        return redirect(ingress_url("web.index"))
     return redirect(ingress_url("web.jobs"))
 
 

@@ -470,6 +470,66 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("Uwaga: ten URL", body)
         self.assertIn("Uruchomiono zadanie", body)
 
+    def test_import_downloads_creates_jobs_for_unique_valid_urls(self) -> None:
+        class FakeUpdater:
+            calls = 0
+
+            def ensure_recent(self) -> bool:
+                self.calls += 1
+                return True
+
+        updater = FakeUpdater()
+        self.app.extensions["ytdlp_updater"] = updater
+        manager = self.app.extensions["job_manager"]
+        with patch.object(
+            manager,
+            "start_download",
+            side_effect=[
+                SimpleNamespace(job_id="11111111"),
+                SimpleNamespace(job_id="22222222"),
+            ],
+        ) as start_download:
+            body = self.client.post(
+                "/download/import",
+                data={
+                    "_csrf_token": self._csrf_token(),
+                    "urls": "\n".join(
+                        [
+                            "https://youtu.be/one",
+                            "https://www.twitch.tv/videos/123",
+                            "https://example.com/nope",
+                            "https://youtu.be/one",
+                        ]
+                    ),
+                },
+                follow_redirects=True,
+            ).get_data(as_text=True)
+
+        self.assertEqual(updater.calls, 1)
+        self.assertEqual(start_download.call_count, 2)
+        self.assertEqual(
+            start_download.call_args_list[0].kwargs["url"], "https://youtu.be/one"
+        )
+        self.assertEqual(
+            start_download.call_args_list[1].kwargs["url"],
+            "https://www.twitch.tv/videos/123",
+        )
+        self.assertEqual(start_download.call_args_list[0].kwargs["download_type"], "best")
+        self.assertIn("Zaimportowano zadania z listy URL: 2.", body)
+        self.assertIn("niepoprawne linki: 1.", body)
+
+    def test_import_downloads_requires_at_least_one_url(self) -> None:
+        response = self.client.post(
+            "/download/import",
+            data={"_csrf_token": self._csrf_token(), "urls": " \n "},
+            follow_redirects=True,
+        )
+
+        self.assertIn(
+            "Wklej co najmniej jeden adres URL do importu.",
+            response.get_data(as_text=True),
+        )
+
     def test_start_live_passes_live_from_start_option(self) -> None:
         class FakeUpdater:
             def ensure_recent(self) -> bool:
@@ -558,6 +618,10 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("platform-chip platform-kick", body)
         self.assertIn("platform-chip platform-twitch", body)
         self.assertIn("hero-input-group", body)
+        self.assertIn('action="/download/import"', body)
+        self.assertIn('id="bulk-media-urls"', body)
+        self.assertIn("Import listy URL", body)
+        self.assertIn("Utwórz zadania", body)
         self.assertIn('href="/history"', body)
         self.assertIn('class="col-12 history-panel"', body)
         self.assertNotIn('class="col-lg-7"', body)

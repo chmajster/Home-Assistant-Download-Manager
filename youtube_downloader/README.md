@@ -110,6 +110,7 @@ Jeżeli Home Assistant pokazuje te etykiety po angielsku, sprawdź język ustawi
 | `POST` | `/history/tags` | Zapis ręcznych tagów dla wpisu historii |
 | `POST` | `/analyze` | Analiza URL bez pobierania |
 | `POST` | `/download` | Uruchomienie pobrania |
+| `POST` | `/download/import` | Import listy URL i utworzenie osobnych zadań pobierania |
 | `POST` | `/live/start` | Uruchomienie zapisu aktywnego live |
 | `POST` | `/live/watch` | Oczekiwanie na start transmisji i automatyczny zapis |
 | `POST` | `/live/stop/<job_id>` | Zatrzymanie zapisu live |

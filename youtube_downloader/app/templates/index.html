@@ -32,6 +32,14 @@
           Analizuję materiał przez yt-dlp. To może potrwać chwilę.
         </div>
       </form>
+      <form action="{{ ingress_url('web.import_downloads') }}" method="post" class="bulk-url-form mt-4">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label class="form-label fw-semibold" for="bulk-media-urls">Import listy URL</label>
+        <div class="bulk-url-grid">
+          <textarea class="form-control" id="bulk-media-urls" name="urls" rows="4" placeholder="https://youtu.be/...&#10;https://www.twitch.tv/videos/..." required></textarea>
+          <button class="btn btn-soft bulk-url-submit" type="submit">Utwórz zadania</button>
+        </div>
+      </form>
     </div>
   </section>
 
