@@ -169,6 +169,11 @@ class ApplicationTestCase(unittest.TestCase):
             self.assertIn("jobAutoRetryBlock", body)
             self.assertIn("next_retry_at", body)
             self.assertIn("auto_retry_attempts", body)
+            self.assertIn("jobPreviewPath", body)
+            self.assertIn("/view/", body)
+            self.assertIn("jobTitle", body)
+            self.assertIn("job-title-link", body)
+            self.assertIn("job-thumbnail-link", body)
         finally:
             response.close()
 
@@ -325,6 +330,10 @@ class ApplicationTestCase(unittest.TestCase):
             expected.name,
             "completed",
         )
+        record = files.history()[0]
+        files.update_history_tags(
+            record["filename"], record["downloaded_at"], "muzyka, tutoriale"
+        )
         body = self.client.get("/view/example.mp4").get_data(as_text=True)
         self.assertIn("Example video", body)
         self.assertIn('<video class="preview-player"', body)
@@ -341,6 +350,11 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("Data pobrania", body)
         self.assertIn("Typ pobrania", body)
         self.assertIn("najlepsza", body)
+        self.assertIn("Tagi", body)
+        self.assertIn('href="/history?q=muzyka"', body)
+        self.assertIn('href="/history?q=tutoriale"', body)
+        self.assertIn('href="/history?q=youtube"', body)
+        self.assertIn('href="/history?q=video"', body)
         self.assertIn("Format pliku", body)
         self.assertIn("video/mp4", body)
         self.assertIn("Status", body)
@@ -859,6 +873,10 @@ class ApplicationTestCase(unittest.TestCase):
             body = self.client.get("/diagnostics").get_data(as_text=True)
 
         self.assertIn("Panel diagnostyczny", body)
+        self.assertIn('class="card app-card diagnostics-panel"', body)
+        self.assertIn('class="diagnostics-strip"', body)
+        self.assertIn('class="diagnostics-section"', body)
+        self.assertNotIn("diagnostics-grid", body)
         self.assertIn("yt-dlp", body)
         self.assertIn("ffmpeg version 8.1.1", body)
         self.assertIn("Ostatnia pr", body)

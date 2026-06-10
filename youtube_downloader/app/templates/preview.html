@@ -47,6 +47,21 @@
         <dd>{{ file_info.downloaded_at|replace("T", " ")|truncate(19, True, "") }}</dd>
         <dt>Typ pobrania</dt>
         <dd>{{ download_type_labels.get(file_info.download_type, file_info.download_type or "brak danych") }}</dd>
+        <dt>Tagi</dt>
+        <dd>
+          {% if file_info.all_tags %}
+            <span class="d-flex flex-wrap gap-1">
+              {% for tag in file_info.tags %}
+                <a class="badge text-bg-light history-tag-link" href="{{ ingress_url('web.history', q=tag) }}">{{ tag }}</a>
+              {% endfor %}
+              {% for tag in file_info.visible_auto_tags %}
+                <a class="badge text-bg-secondary history-tag-link" href="{{ ingress_url('web.history', q=tag) }}">{{ tag }}</a>
+              {% endfor %}
+            </span>
+          {% else %}
+            brak tagów
+          {% endif %}
+        </dd>
         <dt>Format pliku</dt>
         <dd>{{ mime_type }}</dd>
         {% if file_info.format_id %}

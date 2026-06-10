@@ -1046,6 +1046,7 @@ def preview(filename: str):
         ),
         {},
     )
+    enriched_record = _history_records([record])[0] if record else {}
     mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     media_kind = "video" if mime_type.startswith("video/") else "audio"
     if not mime_type.startswith(("video/", "audio/")):
@@ -1056,17 +1057,20 @@ def preview(filename: str):
     ).isoformat()
     return render_template(
         "preview.html",
-        title=record.get("title") or path.name,
+        title=enriched_record.get("title") or path.name,
         filename=path.name,
         mime_type=mime_type,
         media_kind=media_kind,
         file_info={
             "size": stat.st_size,
             "downloaded_at": downloaded_at,
-            "source_url": record.get("url"),
-            "download_type": record.get("type"),
-            "status": record.get("status"),
-            "format_id": record.get("format_id"),
+            "source_url": enriched_record.get("url"),
+            "download_type": enriched_record.get("type"),
+            "status": enriched_record.get("status"),
+            "format_id": enriched_record.get("format_id"),
+            "tags": enriched_record.get("tags", []),
+            "visible_auto_tags": enriched_record.get("visible_auto_tags", []),
+            "all_tags": enriched_record.get("all_tags", []),
         },
     )
 

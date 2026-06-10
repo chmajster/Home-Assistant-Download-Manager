@@ -484,6 +484,28 @@ audio.history-mini-player-media {
   object-fit: cover;
 }
 
+.job-thumbnail-link {
+  border-radius: 0.45rem;
+  display: inline-block;
+  line-height: 0;
+}
+
+.job-thumbnail-link:focus-visible,
+.job-title-link:focus-visible {
+  outline: 3px solid rgba(103, 88, 232, 0.34);
+  outline-offset: 3px;
+}
+
+.job-title-link {
+  color: var(--app-ink);
+  text-decoration: none;
+}
+
+.job-title-link:hover {
+  color: var(--app-primary-dark);
+  text-decoration: underline;
+}
+
 .job-thumbnail-placeholder {
   align-items: center;
   background: rgba(103, 88, 232, 0.08);
@@ -626,14 +648,35 @@ audio.history-mini-player-media {
   min-width: 2.6rem;
 }
 
-.diagnostics-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+.diagnostics-panel .card-body {
+  overflow-x: auto;
 }
 
-.diagnostics-wide {
-  grid-column: 1 / -1;
+.diagnostics-strip {
+  display: grid;
+  gap: 0;
+  grid-auto-columns: minmax(17rem, 1fr);
+  grid-auto-flow: column;
+  min-width: min(100%, 82rem);
+}
+
+.diagnostics-section {
+  border-right: 1px solid var(--app-line);
+  min-width: 0;
+  padding: 0 1rem;
+}
+
+.diagnostics-section:first-child {
+  padding-left: 0;
+}
+
+.diagnostics-section:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.diagnostics-section-storage {
+  min-width: 20rem;
 }
 
 .diagnostics-list {

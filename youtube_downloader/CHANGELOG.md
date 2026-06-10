@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.56
+
+- Dodano tagi w widoku `Podgląd`, z linkami do filtrowanej historii.
+- Zmieniono `Panel diagnostyczny` na poziomy panel sekcji.
+- Dodano linkowanie tytułu i miniatury zadań do podglądu.
+
 ## 1.3.55
 
 - Dodano skrypt do automatycznego podbijania wersji w config.yaml, Dockerfile i CHANGELOG.md.

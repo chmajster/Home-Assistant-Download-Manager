@@ -604,13 +604,41 @@
     return link;
   };
 
+  const jobPreviewPath = (job) => (
+    job.output_file ? `/view/${encodeURIComponent(job.output_file)}` : ""
+  );
+
+  const jobTitle = (job) => {
+    const heading = document.createElement("strong");
+    const previewPath = jobPreviewPath(job);
+    if (!previewPath) {
+      heading.textContent = job.title;
+      return heading;
+    }
+    const link = text("a", job.title, "job-title-link");
+    link.href = route(previewPath);
+    link.setAttribute("aria-label", `Otworz podglad: ${job.title}`);
+    heading.append(link);
+    return heading;
+  };
+
   const jobThumbnail = (job, mobile = false) => {
     if (job.thumbnail_exists && job.thumbnail_filename) {
       const image = document.createElement("img");
-      image.className = `job-thumbnail${mobile ? " job-thumbnail-mobile mb-3" : ""}`;
+      image.className = `job-thumbnail${mobile ? " job-thumbnail-mobile" : ""}`;
       image.src = route(`/thumbnails/${encodeURIComponent(job.thumbnail_filename)}`);
       image.alt = "";
       image.loading = "lazy";
+      const previewPath = jobPreviewPath(job);
+      if (previewPath) {
+        const link = document.createElement("a");
+        link.className = `job-thumbnail-link${mobile ? " d-block mb-3" : ""}`;
+        link.href = route(previewPath);
+        link.setAttribute("aria-label", `Otworz podglad: ${job.title}`);
+        link.append(image);
+        return link;
+      }
+      if (mobile) image.classList.add("mb-3");
       return image;
     }
     const placeholder = text("span", "-", `job-thumbnail-placeholder${mobile ? " job-thumbnail-mobile mb-3" : ""}`);
@@ -781,7 +809,7 @@
       thumbnailCell.append(jobThumbnail(job));
       const titleCell = document.createElement("td");
       titleCell.append(
-        text("strong", job.title),
+        jobTitle(job),
         jobErrorBlock(job),
         jobAutoRetryBlock(job),
         text("small", job.warning_message || "", "job-error d-block text-warning"),
@@ -811,7 +839,8 @@
     jobs.forEach((job) => {
       const card = document.createElement("article");
       card.className = "mobile-list-card p-3 mb-3";
-      const heading = text("strong", job.title, "d-block");
+      const heading = jobTitle(job);
+      heading.classList.add("d-block");
       const meta = text("small", `${downloadTypeLabel(job.download_type)} | ${jobSize(job)} | ${job.speed || "-"} | ETA ${job.eta || "-"}`, "d-block text-body-secondary mb-2");
       const status = statusBadge(job);
       const progress = progressBar(job);
