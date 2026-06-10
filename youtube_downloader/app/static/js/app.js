@@ -84,16 +84,46 @@
     }
   };
 
+  const pastedUrls = (value) => {
+    const urls = [];
+    const seen = new Set();
+    String(value || "").split(/[\n\r,;]+/).map((item) => item.trim()).filter(Boolean).forEach((item) => {
+      if (seen.has(item)) return;
+      seen.add(item);
+      urls.push(item);
+    });
+    return urls;
+  };
+
   document.querySelectorAll(".url-form").forEach((form) => {
+    const input = form.querySelector(".media-url");
+    const feedback = form.querySelector(".invalid-feedback");
+    const syncTextareaHeight = () => {
+      if (!(input instanceof HTMLTextAreaElement)) return;
+      input.style.height = "auto";
+      input.style.height = `${Math.max(input.scrollHeight, 54)}px`;
+    };
+    input?.addEventListener("input", syncTextareaHeight);
+    input?.addEventListener("paste", () => setTimeout(syncTextareaHeight, 0));
     form.addEventListener("submit", (event) => {
-      const input = form.querySelector(".media-url");
-      const valid = input && isValidMediaUrl(input.value);
-      if (!valid) {
+      const urls = pastedUrls(input?.value || "");
+      const invalidUrls = urls.filter((url) => !isValidMediaUrl(url));
+      if (!urls.length || invalidUrls.length) {
         event.preventDefault();
         event.stopPropagation();
         input?.classList.add("is-invalid");
+        if (feedback) {
+          feedback.textContent = !urls.length
+            ? "Wklej co najmniej jeden adres URL."
+            : `Niepoprawne URL-e: ${invalidUrls.join(", ")}`;
+        }
         return;
       }
+      if (feedback) {
+        feedback.textContent = "Wklej poprawny adres HTTP lub HTTPS z obsługiwanej domeny YouTube, Instagram, Kick albo Twitch.";
+      }
+      input?.classList.remove("is-invalid");
+      syncTextareaHeight();
       form.classList.add("was-validated");
       const button = form.querySelector(".analyze-submit");
       button?.setAttribute("disabled", "disabled");

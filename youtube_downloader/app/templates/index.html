@@ -20,7 +20,7 @@
         <label class="visually-hidden" for="media-url">Adres materiału</label>
         <div class="input-group input-group-lg hero-input-group">
           <span class="input-group-text" aria-hidden="true">URL</span>
-          <input class="form-control media-url" id="media-url" type="url" name="url" placeholder="Wklej link z YouTube, Instagram albo Kick" required autocomplete="url">
+          <textarea class="form-control media-url" id="media-url" name="url" rows="1" placeholder="Wklej jeden lub wiele linków z YouTube, Instagram, Kick lub Twitch" required autocomplete="url"></textarea>
           <button class="btn btn-accent px-4 analyze-submit" type="submit">
             <span class="spinner-border spinner-border-sm me-2 d-none" aria-hidden="true"></span>
             <span class="analyze-submit-label">Analizuj</span>
@@ -30,14 +30,6 @@
         <div class="analyze-loading alert alert-info d-none mt-3 mb-0" role="status" aria-live="polite">
           <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
           Analizuję materiał przez yt-dlp. To może potrwać chwilę.
-        </div>
-      </form>
-      <form action="{{ ingress_url('web.import_downloads') }}" method="post" class="bulk-url-form mt-4">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <label class="form-label fw-semibold" for="bulk-media-urls">Import listy URL</label>
-        <div class="bulk-url-grid">
-          <textarea class="form-control" id="bulk-media-urls" name="urls" rows="4" placeholder="https://youtu.be/...&#10;https://www.twitch.tv/videos/..." required></textarea>
-          <button class="btn btn-soft bulk-url-submit" type="submit">Utwórz zadania</button>
         </div>
       </form>
     </div>

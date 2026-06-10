@@ -77,7 +77,7 @@ def _bulk_url_candidates(value: object) -> list[str]:
     """Return unique URL-like tokens from a pasted list."""
 
     raw = str(value or "")
-    candidates = [item.strip() for item in re.split(r"[\s,;]+", raw) if item.strip()]
+    candidates = [item.strip() for item in re.split(r"[\r\n,;]+", raw) if item.strip()]
     unique: list[str] = []
     seen: set[str] = set()
     for candidate in candidates:
@@ -90,6 +90,23 @@ def _bulk_url_candidates(value: object) -> list[str]:
     return unique
 
 
+def _validated_url_candidates(urls: list[str]) -> tuple[list[str], list[str]]:
+    valid: list[str] = []
+    invalid: list[str] = []
+    for url in urls:
+        try:
+            valid.append(MediaService.validate_url(url))
+        except MediaServiceError:
+            invalid.append(url)
+    return valid, invalid
+
+
+def _invalid_urls_message(urls: list[str]) -> str:
+    visible = ", ".join(urls[:10])
+    suffix = f" oraz {len(urls) - 10} więcej" if len(urls) > 10 else ""
+    return f"Niepoprawne URL-e: {visible}{suffix}."
+
+
 def _bulk_download_title(url: str) -> str:
     parts = urlsplit(url)
     host = parts.hostname or "URL"
@@ -100,6 +117,18 @@ def _bulk_download_title(url: str) -> str:
     if tail:
         return f"{host}/{tail}"[:120]
     return host[:120]
+
+
+def _queue_imported_downloads(urls: list[str]) -> int:
+    created = 0
+    for url in urls:
+        _job_manager().start_download(
+            url=url,
+            title=_bulk_download_title(url),
+            download_type="best",
+        )
+        created += 1
+    return created
 
 
 def _live_from_start_value() -> bool:
@@ -467,16 +496,39 @@ def _duration_label(value: object) -> str:
 
 @web_bp.post("/analyze")
 def analyze():
-    """Extract metadata for one supported public media URL."""
+    """Analyze one URL or queue multiple pasted URLs."""
 
     if not _valid_form():
         return redirect(ingress_url("web.index"))
+    urls = _bulk_url_candidates(request.form.get("url", ""))
+    if not urls:
+        flash("Wklej co najmniej jeden adres URL.", "warning")
+        return redirect(ingress_url("web.index"))
+
+    valid_urls, invalid_urls = _validated_url_candidates(urls)
+    if invalid_urls:
+        flash(_invalid_urls_message(invalid_urls), "danger")
+        return redirect(ingress_url("web.index"))
+
+    if len(valid_urls) > 1:
+        if _limited("download-import", 3):
+            flash("Zbyt wiele prób importu listy URL. Odczekaj chwilę.", "warning")
+            return redirect(ingress_url("web.index"))
+        try:
+            _ensure_ytdlp_recent()
+            created = _queue_imported_downloads(valid_urls)
+            flash(f"Zaimportowano zadania z listy URL: {created}.", "success")
+        except MediaServiceError as error:
+            flash(str(error), "danger")
+            return redirect(ingress_url("web.index"))
+        return redirect(ingress_url("web.jobs"))
+
     if _limited("analyze", 6):
         flash("Zbyt wiele prób analizy. Odczekaj chwilę i spróbuj ponownie.", "warning")
         return redirect(ingress_url("web.index"))
     try:
         _ensure_ytdlp_recent()
-        media = _media_service().analyze(request.form.get("url", ""))
+        media = _media_service().analyze(valid_urls[0])
         media["duplicate_warnings"] = _duplicate_download_warnings(
             str(media.get("url") or ""),
             str(media.get("title") or ""),
@@ -530,6 +582,11 @@ def import_downloads():
     urls = _bulk_url_candidates(request.form.get("urls", ""))
     if not urls:
         flash("Wklej co najmniej jeden adres URL do importu.", "warning")
+        return redirect(ingress_url("web.index"))
+
+    _, invalid_urls = _validated_url_candidates(urls)
+    if invalid_urls:
+        flash(_invalid_urls_message(invalid_urls), "danger")
         return redirect(ingress_url("web.index"))
 
     created = 0

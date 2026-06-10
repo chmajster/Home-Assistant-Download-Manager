@@ -470,7 +470,7 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("Uwaga: ten URL", body)
         self.assertIn("Uruchomiono zadanie", body)
 
-    def test_import_downloads_creates_jobs_for_unique_valid_urls(self) -> None:
+    def test_analyze_imports_multiple_unique_valid_urls(self) -> None:
         class FakeUpdater:
             calls = 0
 
@@ -490,14 +490,13 @@ class ApplicationTestCase(unittest.TestCase):
             ],
         ) as start_download:
             body = self.client.post(
-                "/download/import",
+                "/analyze",
                 data={
                     "_csrf_token": self._csrf_token(),
-                    "urls": "\n".join(
+                    "url": "\n".join(
                         [
                             "https://youtu.be/one",
                             "https://www.twitch.tv/videos/123",
-                            "https://example.com/nope",
                             "https://youtu.be/one",
                         ]
                     ),
@@ -516,17 +515,42 @@ class ApplicationTestCase(unittest.TestCase):
         )
         self.assertEqual(start_download.call_args_list[0].kwargs["download_type"], "best")
         self.assertIn("Zaimportowano zadania z listy URL: 2.", body)
-        self.assertIn("niepoprawne linki: 1.", body)
 
-    def test_import_downloads_requires_at_least_one_url(self) -> None:
+    def test_analyze_rejects_mixed_valid_and_invalid_url_import(self) -> None:
+        class FakeUpdater:
+            calls = 0
+
+            def ensure_recent(self) -> bool:
+                self.calls += 1
+                return True
+
+        updater = FakeUpdater()
+        self.app.extensions["ytdlp_updater"] = updater
+        manager = self.app.extensions["job_manager"]
+        with patch.object(manager, "start_download") as start_download:
+            body = self.client.post(
+                "/analyze",
+                data={
+                    "_csrf_token": self._csrf_token(),
+                    "url": "https://youtu.be/one, https://example.com/nope",
+                },
+                follow_redirects=True,
+            ).get_data(as_text=True)
+
+        self.assertEqual(updater.calls, 0)
+        start_download.assert_not_called()
+        self.assertIn("Niepoprawne URL-e", body)
+        self.assertIn("https://example.com/nope", body)
+
+    def test_analyze_requires_at_least_one_url(self) -> None:
         response = self.client.post(
-            "/download/import",
-            data={"_csrf_token": self._csrf_token(), "urls": " \n "},
+            "/analyze",
+            data={"_csrf_token": self._csrf_token(), "url": " \n "},
             follow_redirects=True,
         )
 
         self.assertIn(
-            "Wklej co najmniej jeden adres URL do importu.",
+            "Wklej co najmniej jeden adres URL.",
             response.get_data(as_text=True),
         )
 
@@ -618,10 +642,14 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("platform-chip platform-kick", body)
         self.assertIn("platform-chip platform-twitch", body)
         self.assertIn("hero-input-group", body)
-        self.assertIn('action="/download/import"', body)
-        self.assertIn('id="bulk-media-urls"', body)
-        self.assertIn("Import listy URL", body)
-        self.assertIn("Utwórz zadania", body)
+        self.assertIn('action="/analyze"', body)
+        self.assertIn('id="media-url"', body)
+        self.assertIn("Wklej jeden lub wiele link", body)
+        self.assertIn(">Analizuj</span>", body)
+        self.assertNotIn('action="/download/import"', body)
+        self.assertNotIn('id="bulk-media-urls"', body)
+        self.assertNotIn("Import listy URL", body)
+        self.assertNotIn("Utwórz zadania", body)
         self.assertIn('href="/history"', body)
         self.assertIn('class="col-12 history-panel"', body)
         self.assertNotIn('class="col-lg-7"', body)
@@ -645,6 +673,8 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn("data-bs-theme", script)
         self.assertIn("localStorage.setItem", script)
         self.assertIn("[data-theme-toggle]", script)
+        self.assertIn("pastedUrls", script)
+        self.assertIn('split(/[\\n\\r,;]+/)', script)
 
     def test_history_delete_form_contains_filename_and_size(self) -> None:
         files = self.app.extensions["file_service"]

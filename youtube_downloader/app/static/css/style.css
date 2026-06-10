@@ -264,24 +264,12 @@ a:hover {
   font-size: 1rem;
 }
 
-.bulk-url-form {
-  max-width: 54rem;
-}
-
-.bulk-url-grid {
-  align-items: stretch;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.bulk-url-grid textarea {
-  min-height: 8rem;
+.hero-input-group textarea.form-control {
+  line-height: 1.5;
+  max-height: 12rem;
+  min-height: 3.35rem;
+  overflow-y: auto;
   resize: vertical;
-}
-
-.bulk-url-submit {
-  min-width: 9rem;
 }
 
 .btn-accent {

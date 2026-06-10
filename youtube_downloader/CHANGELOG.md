@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.48
+
+- Scalono pojedynczą analizę URL i import listy URL w jedno główne pole z przyciskiem `Analizuj`.
+- Pole obsługuje wiele linków rozdzielonych nowymi liniami lub przecinkami, usuwa duplikaty i blokuje start zadań, jeśli którykolwiek URL jest niepoprawny.
+
 ## 1.3.47
 
 - Dodano przełącznik motywu jasny/ciemny w navbarze z ikoną słońca/księżyca.
