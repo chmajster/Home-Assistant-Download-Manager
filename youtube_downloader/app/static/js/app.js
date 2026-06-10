@@ -366,6 +366,7 @@
   const removableJobStatuses = new Set(["completed", "error", "stopped", "interrupted"]);
   const isRemovableJob = (job) => removableJobStatuses.has(job.status);
   const selectedJobIds = new Set();
+  const openJobLogIds = new Set();
   let jobsFilter = document.getElementById("jobs-filter-state")?.dataset.initialFilter === "errors" ? "errors" : "all";
 
   const statusBadge = (job) => {
@@ -474,6 +475,12 @@
     if (!lines.length) return document.createDocumentFragment();
     const details = document.createElement("details");
     details.className = "job-log mt-2";
+    details.dataset.jobId = job.job_id;
+    details.open = openJobLogIds.has(job.job_id);
+    details.addEventListener("toggle", () => {
+      if (details.open) openJobLogIds.add(job.job_id);
+      else openJobLogIds.delete(job.job_id);
+    });
     const summary = text("summary", `Log (${lines.length})`);
     const pre = text("pre", lines.join("\n"));
     details.append(summary, pre);

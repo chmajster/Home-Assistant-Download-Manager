@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.49
+
+- Usunięto kolumny `Serwis` i `Plik` z tabeli pełnej historii pobrań.
+- Naprawiono zwijanie logu zadań: otwarty podgląd logu pozostaje otwarty po automatycznym odświeżeniu kolejki.
+
 ## 1.3.48
 
 - Scalono pojedynczą analizę URL i import listy URL w jedno główne pole z przyciskiem `Analizuj`.

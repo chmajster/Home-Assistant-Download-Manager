@@ -152,11 +152,9 @@
                 <th>Miniatura</th>
                 <th>Tytuł</th>
                 <th>Tagi</th>
-                <th>Serwis</th>
                 <th>Data</th>
                 <th>Rozmiar</th>
                 <th>Długość</th>
-                <th>Plik</th>
                 <th></th>
               </tr>
             </thead>
@@ -210,17 +208,9 @@
                       <button class="btn btn-soft" type="submit" form="{{ tag_form_id }}">Zapisz</button>
                     </div>
                   </td>
-                  <td>{{ item.platform }}</td>
                   <td>{{ item.downloaded_at_label }}</td>
                   <td>{{ item.size_label }}</td>
                   <td>{{ item.duration_label }}</td>
-                  <td>
-                    {% if item.file_exists %}
-                      <a class="text-break" href="{{ ingress_url('web.downloaded', filename=item.filename) }}">{{ item.filename }}</a>
-                    {% else %}
-                      <span class="badge text-bg-secondary">plik usunięty</span>
-                    {% endif %}
-                  </td>
                   <td>
                     <div class="d-flex flex-column gap-2 history-mini-player-cell">
                       {% if item.file_exists %}
