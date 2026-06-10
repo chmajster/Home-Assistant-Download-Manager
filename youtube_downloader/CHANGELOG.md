@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.51
+
+- Naprawiono odświeżanie podstron: po F5 na `Historia` aplikacja przywraca ostatnią wewnętrzną ścieżkę zamiast zostawać na stronie głównej.
+
 ## 1.3.50
 
 - Naprawiono przewijanie podglądu logu zadań: automatyczne odświeżanie kolejki nie resetuje już pozycji logu do góry.

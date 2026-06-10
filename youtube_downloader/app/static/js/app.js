@@ -6,6 +6,8 @@
   const jobsViewVisible = Boolean(document.getElementById("jobs-table-body"));
   const jobsRefreshIntervalMs = jobsViewVisible ? 500 : 2500;
   const themeStorageKey = "media-web-downloader-theme";
+  const restorePathStorageKey = "media-web-downloader-restore-path";
+  let intentionalNavigation = false;
   let allowedHosts = new Set();
   try {
     allowedHosts = new Set(JSON.parse(document.getElementById("allowed-hosts")?.textContent || "[]"));
@@ -14,6 +16,50 @@
   }
 
   const route = (path) => `${ingressPath}${path}`;
+
+  const currentInternalLocation = () => {
+    const pathname = window.location.pathname;
+    const internalPath = ingressPath && pathname.startsWith(ingressPath)
+      ? pathname.slice(ingressPath.length) || "/"
+      : pathname || "/";
+    return `${internalPath}${window.location.search}`;
+  };
+
+  const restorePathAfterRefresh = () => {
+    let restorePath = "";
+    try {
+      restorePath = sessionStorage.getItem(restorePathStorageKey) || "";
+      sessionStorage.removeItem(restorePathStorageKey);
+    } catch {
+      return;
+    }
+    if (currentInternalLocation() === "/" && restorePath && restorePath !== "/") {
+      window.location.replace(route(restorePath));
+    }
+  };
+
+  restorePathAfterRefresh();
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("a[href]")) intentionalNavigation = true;
+  }, true);
+
+  document.addEventListener("submit", () => {
+    intentionalNavigation = true;
+  }, true);
+
+  window.addEventListener("beforeunload", () => {
+    try {
+      const currentPath = currentInternalLocation();
+      if (currentPath !== "/" && !intentionalNavigation) {
+        sessionStorage.setItem(restorePathStorageKey, currentPath);
+      } else {
+        sessionStorage.removeItem(restorePathStorageKey);
+      }
+    } catch {
+      // Session storage can be unavailable in hardened WebViews.
+    }
+  });
 
   const preferredTheme = () => (
     window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
