@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Log zadania | Media Web Downloader{% endblock %}
+{% block content %}
+  <div class="page-heading d-flex justify-content-between align-items-center mb-4 gap-2">
+    <div>
+      <span class="eyebrow">Pełny log</span>
+      <h1 class="h3 mb-1">{{ job.title }}</h1>
+      <p class="section-copy mb-0 text-break">{{ job.job_id }}</p>
+    </div>
+    <a class="btn btn-soft" href="{{ ingress_url('web.jobs') }}">Zadania</a>
+  </div>
+
+  <section class="card app-card">
+    <div class="card-body">
+      {% if job.log_lines %}
+        <pre class="job-full-log mb-0">{{ job.log_lines|join("\n") }}</pre>
+      {% else %}
+        <div class="empty-state">
+          <strong>Brak zapisanych linii logu</strong>
+          <small>Log pojawi się, gdy zadanie przekaże dane z yt-dlp.</small>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.52
+
+- Poprawiono przewijanie podglądu logu zadań, aby ukryty widok mobilny/desktopowy nie resetował pozycji do góry.
+- Dodano przycisk `Pełny log`, który otwiera cały log zadania na osobnej stronie.
+
 ## 1.3.51
 
 - Naprawiono odświeżanie podstron: po F5 na `Historia` aplikacja przywraca ostatnią wewnętrzną ścieżkę zamiast zostawać na stronie głównej.

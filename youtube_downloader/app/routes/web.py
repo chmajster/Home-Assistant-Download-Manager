@@ -277,6 +277,7 @@ def _history_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         item["inline_media_type"] = mime_type
         item["inline_media_kind"] = media_kind
         item["can_inline_play"] = bool(item.get("file_exists") and media_kind)
+        item["can_repeat"] = _history_record_can_repeat(item)
         enriched.append(item)
     return enriched
 
@@ -831,6 +832,17 @@ def jobs():
     )
 
 
+@web_bp.get("/jobs/log/<job_id>")
+def job_log(job_id: str):
+    """Render the full saved log for one job."""
+
+    try:
+        job = _job_manager().get_job(job_id)
+    except KeyError:
+        return render_template("error.html", message="Nie znaleziono zadania."), 404
+    return render_template("job_log.html", job=_job_manager().job_dict(job))
+
+
 @web_bp.get("/downloaded/<filename>")
 def downloaded(filename: str):
     """Serve one managed downloaded file."""
@@ -941,6 +953,8 @@ def delete_history_record():
     """Delete one download history record without removing its file."""
 
     if not _valid_form():
+        if request.form.get("return_to") == "history":
+            return _history_redirect()
         return redirect(ingress_url("web.index"))
     deleted = _file_service().delete_history_record(
         request.form.get("filename", ""),
@@ -950,6 +964,8 @@ def delete_history_record():
         flash("Wpis został usunięty z historii.", "success")
     else:
         flash("Nie znaleziono wpisu w historii.", "warning")
+    if request.form.get("return_to") == "history":
+        return _history_redirect()
     return redirect(ingress_url("web.index"))
 
 

@@ -117,6 +117,9 @@ class ApplicationTestCase(unittest.TestCase):
             self.assertIn("jobLogScrollTops", body)
             self.assertIn("captureJobLogScrollPositions", body)
             self.assertIn("pre.scrollTop = jobLogScrollTops.get(job.job_id)", body)
+            self.assertIn("pre.offsetParent !== null", body)
+            self.assertIn("/jobs/log/", body)
+            self.assertIn("job-full-log-link", body)
             self.assertIn("media-web-downloader-restore-path", body)
             self.assertIn('"beforeunload"', body)
             self.assertIn("window.location.replace(route(restorePath))", body)
@@ -143,6 +146,21 @@ class ApplicationTestCase(unittest.TestCase):
             as_text=True
         )
         self.assertIn('id="jobs-filter-state" data-initial-filter="errors"', body)
+
+    def test_job_log_page_displays_full_log(self) -> None:
+        manager = self.app.extensions["job_manager"]
+        job = manager._new_job("https://youtu.be/abc", "Example", "best", is_live=False)
+        with manager._lock:
+            manager._jobs[job.job_id].log_lines = ["line one", "line two"]
+            manager._persist_jobs()
+
+        body = self.client.get(f"/jobs/log/{job.job_id}").get_data(as_text=True)
+
+        self.assertIn("Pełny log", body)
+        self.assertIn("Example", body)
+        self.assertIn("line one", body)
+        self.assertIn("line two", body)
+        self.assertIn('class="job-full-log mb-0"', body)
 
     def test_inactive_job_can_be_deleted_from_jobs_page(self) -> None:
         manager = self.app.extensions["job_manager"]
@@ -1326,6 +1344,62 @@ class ApplicationTestCase(unittest.TestCase):
         self.assertIn(">Usuń wpis</button>", body)
         self.assertIn('name="download_type" value="video-720"', body)
         self.assertIn('class="badge text-bg-secondary"', body)
+
+    def test_full_history_repeat_download_is_available_after_file_deletion(
+        self,
+    ) -> None:
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Example",
+            "https://youtu.be/example",
+            "video-720",
+            target.name,
+            "completed",
+        )
+        files.delete_file(target.name)
+
+        body = self.client.get("/history").get_data(as_text=True)
+
+        self.assertIn('form="history-repeat-0">Pobierz ponownie</button>', body)
+        self.assertIn('id="history-repeat-0"', body)
+        self.assertIn('name="download_type" value="video-720"', body)
+        self.assertIn('form="history-delete-record-0">Usuń wpis</button>', body)
+        self.assertIn('name="return_to" value="history"', body)
+
+    def test_full_history_record_delete_returns_to_history_view(self) -> None:
+        files = self.app.extensions["file_service"]
+        target = files.download_dir / "example.mp4"
+        target.write_text("media", encoding="utf-8")
+        files.record_download(
+            "Example",
+            "https://youtu.be/example",
+            "best",
+            target.name,
+            "completed",
+        )
+        record = files.history()[0]
+
+        response = self.client.post(
+            "/history/delete",
+            data={
+                "_csrf_token": self._csrf_token(),
+                "filename": record["filename"],
+                "downloaded_at": record["downloaded_at"],
+                "return_to": "history",
+                "return_q": "Example",
+                "return_sort": "title",
+                "return_order": "asc",
+                "return_view": "gallery",
+            },
+        )
+
+        self.assertEqual(files.history(), [])
+        self.assertIn(
+            "/history?sort=title&order=asc&view=gallery&q=Example",
+            response.headers["Location"],
+        )
 
     def test_history_repeat_download_keeps_explicit_format_id(self) -> None:
         files = self.app.extensions["file_service"]

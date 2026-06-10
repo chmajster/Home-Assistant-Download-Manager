@@ -131,6 +131,9 @@
                     <button class="btn btn-soft" type="submit" form="{{ tag_form_id }}">Zapisz</button>
                   </div>
                   <div class="d-flex flex-wrap gap-2 mt-2">
+                    {% if item.can_repeat %}
+                      <button class="btn btn-sm btn-soft" type="submit" form="history-repeat-{{ loop.index0 }}">Pobierz ponownie</button>
+                    {% endif %}
                     {% if item.file_exists %}
                       {{ history_mini_player(item, 'history-player-gallery-' ~ loop.index0) }}
                       <a class="btn btn-sm btn-outline-primary" href="{{ ingress_url('web.downloaded', filename=item.filename) }}">Pobierz plik</a>
@@ -138,6 +141,7 @@
                     {% else %}
                       <span class="badge text-bg-secondary">plik usunięty</span>
                     {% endif %}
+                    <button class="btn btn-sm btn-outline-danger" type="submit" form="history-delete-record-{{ loop.index0 }}">Usuń wpis</button>
                   </div>
                 </div>
               </article>
@@ -213,13 +217,23 @@
                   <td>{{ item.duration_label }}</td>
                   <td>
                     <div class="d-flex flex-column gap-2 history-mini-player-cell">
+                      {% if item.can_repeat %}
+                        <div>
+                          <button class="btn btn-sm btn-soft" type="submit" form="history-repeat-{{ loop.index0 }}">Pobierz ponownie</button>
+                        </div>
+                      {% endif %}
                       {% if item.file_exists %}
                         <div class="d-flex flex-wrap gap-2">
                           {{ history_mini_player(item, 'history-player-desktop-' ~ loop.index0) }}
                           <a class="btn btn-sm btn-outline-primary" href="{{ ingress_url('web.downloaded', filename=item.filename) }}">Pobierz plik</a>
                           <button class="btn btn-sm btn-outline-danger" type="submit" form="history-delete-file-{{ loop.index0 }}">Usuń plik</button>
                         </div>
+                      {% else %}
+                        <span class="badge text-bg-secondary">plik usunięty</span>
                       {% endif %}
+                      <div>
+                        <button class="btn btn-sm btn-outline-danger" type="submit" form="history-delete-record-{{ loop.index0 }}">Usuń wpis</button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -272,11 +286,17 @@
                 <button class="btn btn-soft" type="submit" form="{{ tag_form_id }}">Zapisz</button>
               </div>
               <div class="d-flex flex-wrap gap-2 mt-2">
+                {% if item.can_repeat %}
+                  <button class="btn btn-sm btn-soft" type="submit" form="history-repeat-{{ loop.index0 }}">Pobierz ponownie</button>
+                {% endif %}
                 {% if item.file_exists %}
                   {{ history_mini_player(item, 'history-player-mobile-' ~ loop.index0) }}
                   <a class="btn btn-sm btn-outline-primary" href="{{ ingress_url('web.downloaded', filename=item.filename) }}">Pobierz plik</a>
                   <button class="btn btn-sm btn-outline-danger" type="submit" form="history-delete-file-{{ loop.index0 }}">Usuń plik</button>
+                {% else %}
+                  <span class="badge text-bg-secondary">plik usunięty</span>
                 {% endif %}
+                <button class="btn btn-sm btn-outline-danger" type="submit" form="history-delete-record-{{ loop.index0 }}">Usuń wpis</button>
               </div>
             </article>
           {% endfor %}
@@ -307,6 +327,27 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="filename" value="{{ item.filename }}">
         <input type="hidden" name="downloaded_at" value="{{ item.downloaded_at }}">
+        <input type="hidden" name="return_q" value="{{ query }}">
+        <input type="hidden" name="return_sort" value="{{ sort }}">
+        <input type="hidden" name="return_order" value="{{ order }}">
+        <input type="hidden" name="return_view" value="{{ view }}">
+      </form>
+      {% if item.can_repeat %}
+        <form id="history-repeat-{{ loop.index0 }}" action="{{ ingress_url('web.start_download') }}" method="post" class="repeat-download-form">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="url" value="{{ item.url }}">
+          <input type="hidden" name="title" value="{{ item.title }}">
+          <input type="hidden" name="download_type" value="{{ item.type }}">
+          <input type="hidden" name="allow_duplicate" value="1">
+          {% if item.duration is defined and item.duration %}<input type="hidden" name="duration" value="{{ item.duration }}">{% endif %}
+          {% if item.format_id is defined and item.format_id %}<input type="hidden" name="format_id" value="{{ item.format_id }}">{% endif %}
+        </form>
+      {% endif %}
+      <form id="history-delete-record-{{ loop.index0 }}" action="{{ ingress_url('web.delete_history_record') }}" method="post" class="history-delete-form" data-title="{{ item.title }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="filename" value="{{ item.filename }}">
+        <input type="hidden" name="downloaded_at" value="{{ item.downloaded_at }}">
+        <input type="hidden" name="return_to" value="history">
         <input type="hidden" name="return_q" value="{{ query }}">
         <input type="hidden" name="return_sort" value="{{ sort }}">
         <input type="hidden" name="return_order" value="{{ order }}">

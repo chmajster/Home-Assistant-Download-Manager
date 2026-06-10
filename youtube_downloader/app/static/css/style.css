@@ -540,6 +540,10 @@ audio.history-mini-player-media {
   font-weight: 800;
 }
 
+.job-full-log-link {
+  margin-top: 0.45rem;
+}
+
 .job-log pre {
   background: #111827;
   border-radius: 0.45rem;
@@ -549,6 +553,17 @@ audio.history-mini-player-media {
   max-height: 12rem;
   overflow: auto;
   padding: 0.65rem;
+  white-space: pre-wrap;
+}
+
+.job-full-log {
+  background: #111827;
+  border-radius: 0.55rem;
+  color: #e5e7eb;
+  font-size: 0.82rem;
+  max-height: calc(100vh - 14rem);
+  overflow: auto;
+  padding: 1rem;
   white-space: pre-wrap;
 }
 

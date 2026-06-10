@@ -520,7 +520,7 @@
   const captureJobLogScrollPositions = () => {
     document.querySelectorAll(".job-log[data-job-id] pre").forEach((pre) => {
       const jobId = pre.closest(".job-log")?.dataset.jobId;
-      if (jobId) jobLogScrollTops.set(jobId, pre.scrollTop);
+      if (jobId && pre.offsetParent !== null) jobLogScrollTops.set(jobId, pre.scrollTop);
     });
   };
 
@@ -536,16 +536,20 @@
       else openJobLogIds.delete(job.job_id);
     });
     const summary = text("summary", `Log (${lines.length})`);
+    const fullLogLink = text("a", "Pełny log", "btn btn-sm btn-soft job-full-log-link");
+    fullLogLink.href = route(`/jobs/log/${encodeURIComponent(job.job_id)}`);
+    fullLogLink.target = "_blank";
+    fullLogLink.rel = "noreferrer";
     const pre = text("pre", lines.join("\n"));
     pre.addEventListener("scroll", () => {
-      jobLogScrollTops.set(job.job_id, pre.scrollTop);
+      if (pre.offsetParent !== null) jobLogScrollTops.set(job.job_id, pre.scrollTop);
     });
     if (jobLogScrollTops.has(job.job_id)) {
       requestAnimationFrame(() => {
         pre.scrollTop = jobLogScrollTops.get(job.job_id) || 0;
       });
     }
-    details.append(summary, pre);
+    details.append(summary, fullLogLink, pre);
     return details;
   };
 
